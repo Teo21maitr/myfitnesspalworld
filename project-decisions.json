@@ -1,0 +1,63 @@
+{
+  "app_name": "MyFitnessPalworld",
+  "audience": "private_friends_family",
+  "language": "fr",
+  "mobile_first": true,
+  "pwa": true,
+  "themes": [
+    "light",
+    "dark",
+    "system"
+  ],
+  "frontend": [
+    "React",
+    "TypeScript",
+    "Vite",
+    "React Router",
+    "TanStack Query",
+    "Tailwind CSS",
+    "shadcn/ui",
+    "React Hook Form",
+    "Zod"
+  ],
+  "backend": [
+    "Django",
+    "Django REST Framework",
+    "PostgreSQL",
+    "Celery",
+    "Redis"
+  ],
+  "auth": "HttpOnly secure cookie-based token session",
+  "environments": [
+    "local",
+    "production"
+  ],
+  "branches": [
+    "develop",
+    "main"
+  ],
+  "railway_production_branch": "main",
+  "feature_branches_required": false,
+  "exercise_tracking": false,
+  "water_tracking": false,
+  "ai_provider_initial": "Anthropic",
+  "food_sources": [
+    "Ciqual 2025",
+    "Open Food Facts",
+    "User foods"
+  ],
+  "usda_fallback": "optional_later",
+  "offline_mode": "simple",
+  "progress_photos_shareable": false,
+  "branding": {
+    "colors": [
+      "blue",
+      "white"
+    ],
+    "logo": "minimal bald man silhouette with modern dietitian/professional nutrition feel",
+    "formats": [
+      "icon+text",
+      "icon-only"
+    ]
+  }
+}
