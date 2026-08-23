@@ -1,0 +1,115 @@
+# Environnement de développement local complet.
+#
+#   docker compose up
+#
+# Les ports publiés sur l'hôte sont configurables via le `.env` afin de
+# cohabiter avec d'autres projets (voir BACKEND_PORT, POSTGRES_PORT, ...).
+
+name: myfitnesspalworld
+
+x-backend-env: &backend-env
+  # Les conteneurs joignent les services par leur nom sur le réseau compose :
+  # ces valeurs remplacent celles du `.env`, qui visent l'hôte.
+  DJANGO_SETTINGS_MODULE: config.settings.local
+  DATABASE_URL: postgres://${POSTGRES_USER:-mfp}:${POSTGRES_PASSWORD:-mfp}@db:5432/${POSTGRES_DB:-mfp}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mfp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mfp}
+      POSTGRES_DB: ${POSTGRES_DB:-mfp}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mfp} -d ${POSTGRES_DB:-mfp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - .env
+    environment:
+      <<: *backend-env
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: celery -A config worker -l info
+    env_file:
+      - .env
+    environment:
+      <<: *backend-env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: ./backend
+    # Ordonnanceur des rappels, du nettoyage des fichiers temporaires et du
+    # rafraîchissement des caches externes (spec 09 §10). Aucune tâche
+    # planifiée n'est encore définie.
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      <<: *backend-env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      # Le navigateur de l'hôte appelle l'API par le port publié.
+      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8001}/api/v1
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      # Conserve les node_modules installés dans l'image.
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:

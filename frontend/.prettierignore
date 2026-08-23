@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+dev-dist
+package-lock.json
+public/*.png
+*.svg

@@ -1,0 +1,33 @@
+# Environnement
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+staticfiles/
+media/
+*.sqlite3
+celerybeat-schedule*
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Éditeurs / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

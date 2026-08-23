@@ -1,0 +1,6 @@
+# Dépendances de développement et de CI.
+-r requirements.txt
+
+pytest==9.1.1
+pytest-django==4.14.0
+ruff==0.16.4

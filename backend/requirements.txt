@@ -1,0 +1,27 @@
+# Dépendances de production — versions épinglées (spec 10 §1).
+# Toute mise à jour doit être délibérée et testée.
+
+# Framework
+Django==5.2.9
+djangorestframework==3.18.0
+djangorestframework-simplejwt==5.5.1
+
+# Base de données
+psycopg[binary]==3.3.4
+
+# Configuration
+django-environ==0.14.0
+
+# Tâches asynchrones
+celery[redis]==5.6.3
+# redis-py est contraint par kombu (celery) : redis<6.5
+redis==6.4.0
+
+# HTTP / sécurité
+django-cors-headers==4.9.0
+
+# Service des fichiers statiques (admin) en production
+whitenoise==6.12.0
+
+# Serveur WSGI de production
+gunicorn==26.1.0

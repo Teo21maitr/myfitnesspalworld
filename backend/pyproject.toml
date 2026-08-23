@@ -1,0 +1,63 @@
+[project]
+name = "myfitnesspalworld-backend"
+version = "0.1.0"
+description = "Backend Django de MyFitnessPalworld"
+requires-python = ">=3.13"
+
+# Les dépendances sont verrouillées dans requirements.txt / requirements-dev.txt
+# (spec 10 §1). Ce fichier ne sert qu'à la configuration des outils.
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "DJ",   # flake8-django
+    "SIM",  # simplify
+    "S",    # bandit
+    "RUF",  # ruff
+]
+ignore = [
+    # `assert` est l'idiome normal de pytest.
+    "S101",
+    # RUF012 exige `ClassVar` sur les attributs de classe mutables. C'est
+    # structurellement incompatible avec le style déclaratif de Django et DRF
+    # (`Meta.ordering`, `permission_classes`, `list_display`, `fields`...),
+    # qui sont des listes de classe par conception.
+    "RUF012",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Les migrations sont générées par Django et ne doivent jamais être
+# reformatées une fois appliquées (spec 10 §10). Elles restent analysées pour
+# les vraies erreurs, mais pas pour la longueur de ligne.
+"**/migrations/*.py" = ["E501"]
+# Les mots de passe de test ne sont pas des secrets.
+"**/tests/**" = ["S105", "S106", "S107"]
+"conftest.py" = ["S105", "S106", "S107"]
+# Les settings importent volontairement en étoile.
+"config/settings/*.py" = ["F403", "F405"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "accounts", "ai", "common", "config", "diary", "notifications",
+    "nutrition", "planning", "progress", "recipes", "social",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["accounts", "common", "nutrition", "diary", "recipes", "planning", "social", "progress", "ai", "notifications"]
+addopts = "--strict-markers"
