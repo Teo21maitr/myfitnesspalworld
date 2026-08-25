@@ -8,6 +8,7 @@ import { TextField } from '@/components/form/text-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { login, meQueryKey } from '@/features/auth/api'
+import { resetSessionRefresh } from '@/lib/api/client'
 import { loginSchema, type LoginValues } from '@/features/auth/schemas'
 import { useApiFormErrors } from '@/features/auth/use-api-form-errors'
 
@@ -31,6 +32,7 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (user) => {
+      resetSessionRefresh()
       queryClient.setQueryData(meQueryKey, user)
       const from = (location.state as { from?: string } | null)?.from
       navigate(from ?? '/', { replace: true })

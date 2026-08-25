@@ -145,6 +145,9 @@ class RefreshView(AuthThrottleMixin, APIView):
 
     authentication_classes: list = []
     permission_classes = [AllowAny]
+    # Quota distinct de celui de la connexion : l'application le déclenche
+    # elle-même à chaque chargement de page.
+    throttle_scope = "refresh"
 
     def post(self, request: Request) -> Response:
         raw_refresh = request.COOKIES.get(settings.AUTH_COOKIE_REFRESH_NAME)

@@ -158,10 +158,33 @@ async function performRequest<T>(path: string, options: RequestOptions): Promise
  */
 let refreshPromise: Promise<unknown> | null = null
 
+/**
+ * Passe à `true` dès qu'un renouvellement échoue.
+ *
+ * Sans ce garde-fou, chaque page consultée hors session relancerait un
+ * renouvellement voué à l'échec et consommerait inutilement le quota de
+ * l'API. Il est levé dès qu'une session valide est établie.
+ */
+let refreshKnownToFail = false
+
+/** Signale qu'une session valide existe de nouveau (connexion réussie). */
+export function resetSessionRefresh(): void {
+  refreshKnownToFail = false
+}
+
 function refreshSession(): Promise<unknown> {
-  refreshPromise ??= performRequest('/auth/refresh/', { method: 'POST' }).finally(() => {
-    refreshPromise = null
-  })
+  refreshPromise ??= performRequest('/auth/refresh/', { method: 'POST' })
+    .then((result) => {
+      refreshKnownToFail = false
+      return result
+    })
+    .catch((error: unknown) => {
+      refreshKnownToFail = true
+      throw error
+    })
+    .finally(() => {
+      refreshPromise = null
+    })
   return refreshPromise
 }
 
@@ -198,6 +221,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const isAuthRoute = AUTH_PATHS.some((authPath) => path.startsWith(authPath))
 
     if (!(error instanceof ApiError) || !error.isUnauthorized || isAuthRoute) {
+      throw error
+    }
+
+    // Inutile de réessayer si le renouvellement a déjà échoué : l'utilisateur
+    // n'a tout simplement pas de session.
+    if (refreshKnownToFail) {
       throw error
     }
 

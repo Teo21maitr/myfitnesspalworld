@@ -271,6 +271,21 @@ def test_logout_all_incremente_la_version_de_session(auth_client, active_user):
 # --- Limitation de débit -----------------------------------------------------
 
 
+def test_le_renouvellement_ne_consomme_pas_le_quota_de_connexion(api_client, user):
+    """Quotas distincts.
+
+    L'application déclenche un renouvellement à chaque chargement de page :
+    s'il partageait le quota de la connexion, un visiteur déconnecté finirait
+    par ne plus pouvoir se connecter.
+    """
+    for _ in range(15):
+        api_client.post(REFRESH_URL)
+
+    response = api_client.post(LOGIN_URL, {"username": "Teo", "password": PASSWORD})
+
+    assert response.status_code == 200
+
+
 def test_les_tentatives_de_connexion_sont_limitees(api_client, user):
     """Les endpoints sensibles sont throttlés (spec 05 §12)."""
     statuts = [

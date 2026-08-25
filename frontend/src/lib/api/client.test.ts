@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearCsrfCookie, jsonResponse, seedCsrfCookie, stubFetch } from '@/test/fetch-mock'
 
-import { ApiError, api, apiRequest, NetworkError, setUnauthorizedHandler } from './client'
+import {
+  ApiError,
+  api,
+  apiRequest,
+  NetworkError,
+  resetSessionRefresh,
+  setUnauthorizedHandler,
+} from './client'
 
 /** Options passées à `fetch` lors du dernier appel. */
 function lastCallInit(spy: ReturnType<typeof stubFetch>): RequestInit {
@@ -25,6 +32,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
   clearCsrfCookie()
   setUnauthorizedHandler(null)
+  // Le client garde en mémoire qu'un renouvellement a échoué : chaque test
+  // repart d'un état neuf.
+  resetSessionRefresh()
 })
 
 describe('apiRequest', () => {
@@ -187,6 +197,29 @@ describe('rafraîchissement silencieux', () => {
 
     await expect(api.get('/profile/')).rejects.toBeInstanceOf(ApiError)
     expect(onUnauthorized).toHaveBeenCalledOnce()
+  })
+
+  it('cesse de réessayer une fois le renouvellement voué à l’échec', async () => {
+    const spy = stubFetch([
+      {
+        match: '/auth/refresh/',
+        respond: () =>
+          jsonResponse({ code: 'invalid_refresh', message: 'Session expirée.', errors: {} }, 401),
+      },
+      {
+        match: '/profile/',
+        respond: () =>
+          jsonResponse({ code: 'not_authenticated', message: 'Expiré.', errors: {} }, 401),
+      },
+    ])
+
+    await expect(api.get('/profile/')).rejects.toBeInstanceOf(ApiError)
+    await expect(api.get('/profile/')).rejects.toBeInstanceOf(ApiError)
+
+    // Une seule tentative : sans ce garde-fou, chaque page consultée hors
+    // session consommerait le quota de l'API.
+    const refreshCalls = spy.mock.calls.filter((call) => String(call[0]).includes('/auth/refresh/'))
+    expect(refreshCalls).toHaveLength(1)
   })
 
   it('ne tente pas de rafraîchir une route d’authentification', async () => {

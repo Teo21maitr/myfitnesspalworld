@@ -177,7 +177,13 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "user": "1000/hour",
+        # Connexion, inscription et mot de passe oublié : quota serré, ce sont
+        # les portes d'entrée.
         "auth": "10/min",
+        # Le renouvellement de session est déclenché par l'application elle-même
+        # à chaque chargement : il lui faut son propre quota, sans quoi une
+        # simple navigation épuiserait celui de la connexion.
+        "refresh": "60/min",
         "ai": "30/hour",
     },
 }
