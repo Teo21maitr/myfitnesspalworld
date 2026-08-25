@@ -172,6 +172,9 @@ jobs:
       - name: Parcours de bout en bout
         run: npm run test:e2e
         working-directory: frontend
+        env:
+          # Le parcours aliments importe lui-même l'extrait Ciqual versionné.
+          E2E_PYTHON: python
 
       - name: Publier le rapport en cas d'échec
         if: failure()

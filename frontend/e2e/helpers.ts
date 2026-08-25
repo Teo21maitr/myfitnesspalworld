@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process'
 
+import type { Page } from '@playwright/test'
+
 const PYTHON = process.env.E2E_PYTHON ?? '../backend/.venv/bin/python'
 
 function backendEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
@@ -56,4 +58,25 @@ export function resetThrottleCounters(): void {
       stdio: 'pipe',
     },
   )
+}
+
+/** Importe l'extrait Ciqual versionné, pour que la recherche ait de la matière. */
+export function importCiqualSample(): void {
+  execFileSync(PYTHON, ['manage.py', 'import_ciqual', 'nutrition/tests/fixtures/ciqual'], {
+    cwd: '../backend',
+    env: backendEnv(),
+    stdio: 'pipe',
+  })
+}
+
+/** Dépose une demande d'inscription depuis l'interface. */
+export async function signUp(page: Page, username: string, password: string): Promise<void> {
+  await page.goto('/demande-inscription')
+  await page.getByLabel('Prénom').fill('Téo')
+  await page.getByLabel('Nom', { exact: true }).fill('Maitrot')
+  await page.getByLabel('Nom d’utilisateur').fill(username)
+  await page.getByLabel('Mot de passe', { exact: true }).fill(password)
+  await page.getByLabel('Confirmation du mot de passe').fill(password)
+  await page.getByRole('button', { name: 'Envoyer ma demande' }).click()
+  await page.getByRole('heading', { name: 'Demande envoyée' }).waitFor()
 }
