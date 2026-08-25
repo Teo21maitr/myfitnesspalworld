@@ -63,5 +63,9 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     restoreMocks: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // `e2e/` appartient à Playwright : ses specs ne doivent pas être
+    // collectées par Vitest.
+    exclude: ['node_modules', 'dist', 'dev-dist', 'e2e'],
   },
 })

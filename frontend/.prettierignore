@@ -5,3 +5,5 @@ dev-dist
 package-lock.json
 public/*.png
 *.svg
+playwright-report
+test-results

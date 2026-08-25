@@ -25,6 +25,9 @@ dist-ssr/
 coverage/
 .vite/
 *.tsbuildinfo
+playwright-report/
+test-results/
+/frontend/.playwright/
 
 # Éditeurs / OS
 .DS_Store

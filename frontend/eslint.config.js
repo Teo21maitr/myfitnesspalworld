@@ -6,7 +6,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'dev-dist', 'coverage', 'node_modules'] },
+  {
+    ignores: ['dist', 'dev-dist', 'coverage', 'node_modules', 'playwright-report', 'test-results'],
+  },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -34,8 +36,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.config.{ts,js}', 'src/test/**'],
+    files: ['**/*.config.{ts,js}', 'src/test/**', 'e2e/**'],
     languageOptions: { globals: { ...globals.node } },
+    rules: {
+      // Ces fichiers ne sont jamais chargés par l'application : le Fast
+      // Refresh ne les concerne pas.
+      'react-refresh/only-export-components': 'off',
+    },
   },
   prettier,
 )
