@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="windows-1252" ?>
+<TABLE>
+<ALIM>
+      <alim_code> 1000 </alim_code>
+      <alim_nom_fr> Pastis </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Pastis </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Pastis (anise-flavoured spirit) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1001 </alim_code>
+      <alim_nom_fr> Eau de vie </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Eau de vie </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Clear fruit brandy or eau-de-vie </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 5005 </alim_code>
+      <alim_nom_fr> Panaché préemballé (<1° alc.) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Panaché </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Shandy, prepacked (<1° alcohol) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 9410 </alim_code>
+      <alim_nom_fr> Farine de blé tendre ou froment T110 </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Farine de blé </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Wheat flour, type 110 </alim_nom_eng>
+      <alim_grp_code> 03 </alim_grp_code>
+      <alim_ssgrp_code> 0305 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 030501 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 13000 </alim_code>
+      <alim_nom_fr> Abricot, dénoyauté, cru </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Abricot </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Apricot, pitted, raw </alim_nom_eng>
+      <alim_grp_code> 02 </alim_grp_code>
+      <alim_ssgrp_code> 0204 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 020401 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 20904 </alim_code>
+      <alim_nom_fr> Tofu nature, préemballé </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Tofu </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Tofu, plain </alim_nom_eng>
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0411 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 000000 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 36002 </alim_code>
+      <alim_nom_fr> Poulet, cuisse, viande et peau, cru </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Poulet cru </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Chicken, leg, meat and skin, raw </alim_nom_eng>
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0402 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040203 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1002 </alim_code>
+      <alim_nom_fr> Gin </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Gin </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Gin </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1003 </alim_code>
+      <alim_nom_fr> Liqueur </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Liqueur </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Liqueur </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1004 </alim_code>
+      <alim_nom_fr> Rhum </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Rhum </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Rum </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1005 </alim_code>
+      <alim_nom_fr> Whisky </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Whisky </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Whisky </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1006 </alim_code>
+      <alim_nom_fr> Vin doux </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Vin doux </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Wine, white, sweet </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060301 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1007 </alim_code>
+      <alim_nom_fr> Apéritif à base de vin ou vermouth </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Apéritif à base de vin ou vermouth </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Wine-based aperitif </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1008 </alim_code>
+      <alim_nom_fr> Vodka </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Vodka </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Vodka </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1010 </alim_code>
+      <alim_nom_fr> Pastis, prêt à boire (1+ 5) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Pastis dilué eau </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Anis spirit, diluted (1+5) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1011 </alim_code>
+      <alim_nom_fr> Apéritif anisé sans alcool </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Pastis sans alcool </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Wine or fortified wine-based aperitif </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1012 </alim_code>
+      <alim_nom_fr> Cocktail à base de rhum </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Mojito, pina colada, daïquiri, cuba libre, mai tai </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Rum-based cocktail </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1013 </alim_code>
+      <alim_nom_fr> Cocktail à base de whisky </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Irish coffee, manhattan, whisky coca </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Whiskey-based cocktail </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1014 </alim_code>
+      <alim_nom_fr> Alcool pur </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Alcool </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Pure alcohol </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1015 </alim_code>
+      <alim_nom_fr> Marsala </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Marsala </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Marsala wine </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1016 </alim_code>
+      <alim_nom_fr> Marsala aux oeufs </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Marsala aux œufs </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Marsala w eggs </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1017 </alim_code>
+      <alim_nom_fr> Sangria </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Sangria </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Sangria </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1018 </alim_code>
+      <alim_nom_fr> Kir (au vin blanc) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Kir </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Kir (Cocktail of white wine with red fruit liqueur) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1019 </alim_code>
+      <alim_nom_fr> Kir royal (au champagne) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Kir royal </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Champagne kir (Cocktail of champagne with red fruit liqueur) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1021 </alim_code>
+      <alim_nom_fr> Crème de cassis </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Crème de cassis </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Blackcurrant liqueur </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1022 </alim_code>
+      <alim_nom_fr> Cocktail type punch, 16% alcool </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Cocktail punch </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Cocktail, punch type, 16% alcohol </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1023 </alim_code>
+      <alim_nom_fr> Eau de vie de vin, type armagnac, cognac </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Armagnac, cognac </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Spirit made from wine, armagnac or cognac type </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1024 </alim_code>
+      <alim_nom_fr> Eau de vie, type calvados </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Alcool, calvados </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Calvados brandy </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1026 </alim_code>
+      <alim_nom_fr> Saké ou Alcool de riz </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Saké </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Sake or rice wine </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1027 </alim_code>
+      <alim_nom_fr> Spécialité végétale type fromage à tartiner, au soja, préemballée </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Tarti'gourmet tartinable sojami </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Plant-based spread-cheese type, with soybean, prepacked </alim_nom_eng>
+      <alim_grp_code> 05 </alim_grp_code>
+      <alim_ssgrp_code> 0503 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 050306 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1028 </alim_code>
+      <alim_nom_fr> Spécialité végétale type fromage, à la noix de cajou, préemballée </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Cajou faux-mage faux mage </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Plant-based cheese, with cashew, prepacked </alim_nom_eng>
+      <alim_grp_code> 05 </alim_grp_code>
+      <alim_ssgrp_code> 0503 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 050306 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1029 </alim_code>
+      <alim_nom_fr> Spécialité végétale type fromage en tranche ou râpé, sans soja, préemballée </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Faux-mage vegan râpé faux mage tranché vegecheese </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Plant-based cheese, without soybean, prepacked </alim_nom_eng>
+      <alim_grp_code> 05 </alim_grp_code>
+      <alim_ssgrp_code> 0503 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 050306 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1030 </alim_code>
+      <alim_nom_fr> Spécialité végétale type jambon cuit, préemballée </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Wheaty jambon végétal </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Plant-based ham, prepacked </alim_nom_eng>
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0403 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040309 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 1031 </alim_code>
+      <alim_nom_fr> Spécialité végétale type pâté, préemballée </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Terrine veggie </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Plant-based pâté, prepacked </alim_nom_eng>
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0403 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040309 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2000 </alim_code>
+      <alim_nom_fr> Jus d'ananas, à base de concentré </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Jus d'ananas </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Pineapple juice, reconstituted from a concentrate </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2002 </alim_code>
+      <alim_nom_fr> Jus multifruit, pur jus, multivitaminé </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Jus multifruit multivitaminé </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Mixed fruits juice, pure juice, multivitamin </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2004 </alim_code>
+      <alim_nom_fr> Jus de fruits (aliment moyen) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Jus de fruits </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Fruit juice (average) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2006 </alim_code>
+      <alim_nom_fr> Jus de carotte, pur jus </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Jus de carotte </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Carrot juice, pure juice </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2007 </alim_code>
+      <alim_nom_fr> Jus de citron, maison </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Jus de citron </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Lemon juice, home-made </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+   </ALIM>
+<ALIM>
+      <alim_code> 2008 </alim_code>
+      <alim_nom_fr> Cocktail sans alcool (à base de jus de fruits et de sirop) </alim_nom_fr>
+      <ALIM_NOM_INDEX_FR> Virgin mojito, virgin pina colada </ALIM_NOM_INDEX_FR>
+      <alim_nom_eng> Cocktail, alcohol-free (juices and syrup-based cocktail) </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+   </ALIM>
+</TABLE>
