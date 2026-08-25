@@ -80,3 +80,42 @@ export async function signUp(page: Page, username: string, password: string): Pr
   await page.getByRole('button', { name: 'Envoyer ma demande' }).click()
   await page.getByRole('heading', { name: 'Demande envoyée' }).waitFor()
 }
+
+const SEED_OFF_PRODUCT = [
+  'from nutrition.models import Food, FoodNutrition, FoodSource, UnitType',
+  'from django.utils import timezone',
+  'food, _ = Food.objects.update_or_create(',
+  '    source=FoodSource.OFF, external_id="3017620422003",',
+  '    defaults={"name": "Nutella", "brand": "Ferrero", "barcode": "3017620422003",',
+  '              "reference_amount": 100, "reference_unit": UnitType.GRAM,',
+  '              "cache_refreshed_at": timezone.now(), "is_active": True})',
+  'FoodNutrition.objects.update_or_create(food=food, defaults={"energy_kcal": "539"})',
+].join('\n')
+
+/**
+ * Place un produit Open Food Facts dans le cache local.
+ *
+ * Le parcours doit être déterministe : en peuplant le cache, la résolution du
+ * code-barres s'arrête avant tout appel réseau. Aucun test ne dépend ainsi de
+ * la disponibilité ni du quota de la source.
+ */
+export function seedCachedOffProduct(): void {
+  execFileSync(PYTHON, ['manage.py', 'shell', '-c', SEED_OFF_PRODUCT], {
+    cwd: '../backend',
+    env: backendEnv(),
+    stdio: 'pipe',
+  })
+}
+
+const CLEANUP_OFF = [
+  'from nutrition.models import Food, FoodSource',
+  'Food.objects.filter(source=FoodSource.OFF).delete()',
+].join('; ')
+
+export function cleanupOffProducts(): void {
+  execFileSync(PYTHON, ['manage.py', 'shell', '-c', CLEANUP_OFF], {
+    cwd: '../backend',
+    env: backendEnv(),
+    stdio: 'pipe',
+  })
+}
