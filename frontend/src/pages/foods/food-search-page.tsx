@@ -1,10 +1,11 @@
-import { Search } from 'lucide-react'
+import { ScanBarcode, Search } from 'lucide-react'
 import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ExternalFoodResults, ExternalSearchButton } from '@/features/foods/external-food-results'
 import { FoodList } from '@/features/foods/food-list'
 import { MINIMUM_QUERY_LENGTH, useFoodSearch, useFoodShortcuts } from '@/features/foods/use-foods'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -34,6 +35,9 @@ export function FoodSearchPage() {
   const inputId = useId()
   const [query, setQuery] = useState('')
   const [shortcut, setShortcut] = useState<Shortcut>('favorites')
+  // La recherche élargie n'est jamais automatique : elle porte sur la
+  // requête telle qu'elle était au moment du clic (spec 11 §5).
+  const [externalQuery, setExternalQuery] = useState<string | null>(null)
 
   // La recherche ne part pas à chaque frappe (spec 11 §5).
   const debouncedQuery = useDebouncedValue(query)
@@ -53,9 +57,17 @@ export function FoodSearchPage() {
             Cherchez un aliment ou consultez vos habitudes.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/mes-aliments">Mes aliments</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/scanner">
+              <ScanBarcode aria-hidden="true" className="size-4" />
+              Scanner
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/mes-aliments">Mes aliments</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -83,14 +95,27 @@ export function FoodSearchPage() {
       </div>
 
       {isSearching ? (
-        <section aria-label="Résultats de recherche">
-          <FoodList
-            foods={search.data?.results}
-            isPending={search.isPending}
-            error={search.error}
-            emptyMessage={`Aucun aliment ne correspond à « ${debouncedQuery.trim()} ».`}
-          />
-        </section>
+        <>
+          <section aria-label="Résultats de recherche">
+            <FoodList
+              foods={search.data?.results}
+              isPending={search.isPending}
+              error={search.error}
+              emptyMessage={`Aucun aliment ne correspond à « ${debouncedQuery.trim()} ».`}
+            />
+          </section>
+
+          <section aria-label="Produits de marque" className="flex flex-col gap-2">
+            <h2 className="text-muted-foreground text-sm font-medium">
+              Vous cherchez un produit de marque ?
+            </h2>
+            {externalQuery === debouncedQuery.trim() ? (
+              <ExternalFoodResults query={externalQuery} />
+            ) : (
+              <ExternalSearchButton onClick={() => setExternalQuery(debouncedQuery.trim())} />
+            )}
+          </section>
+        </>
       ) : (
         <section aria-label="Vos aliments">
           <div
