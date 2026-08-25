@@ -13,6 +13,11 @@ target-version = "py313"
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
+# L'apostrophe typographique est l'apostrophe correcte en français et
+# l'interface l'utilise partout : les messages renvoyés par l'API doivent
+# suivre la même typographie. RUF001 la signale sinon comme un homoglyphe.
+allowed-confusables = ["’"]
+
 select = [
     "E",    # pycodestyle
     "W",    # pycodestyle warnings

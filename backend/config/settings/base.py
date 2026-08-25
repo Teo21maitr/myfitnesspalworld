@@ -122,6 +122,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # -----------------------------------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
 
+# Durée de validité d'un lien de réinitialisation de mot de passe. La valeur
+# par défaut de Django est de 3 jours, ramenée ici à 1 heure (spec 01 §1 :
+# « token à durée limitée »).
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60)
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -134,6 +139,9 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_COOKIE_ACCESS_NAME = "mfp_access"
 AUTH_COOKIE_REFRESH_NAME = "mfp_refresh"
 AUTH_COOKIE_PATH = "/"
+# Le cookie de refresh est restreint aux routes d'authentification : il ne
+# circule pas à chaque appel d'API.
+AUTH_COOKIE_REFRESH_PATH = env.str("AUTH_COOKIE_REFRESH_PATH", default="/api/v1/auth/")
 AUTH_COOKIE_SECURE = env.bool("AUTH_COOKIE_SECURE", default=False)
 AUTH_COOKIE_SAMESITE = env.str("AUTH_COOKIE_SAMESITE", default="Lax")
 AUTH_COOKIE_DOMAIN = env.str("AUTH_COOKIE_DOMAIN", default="") or None
