@@ -248,3 +248,19 @@ class FoodWriteSerializer(serializers.ModelSerializer):
             nutrition.save()
 
         return instance
+
+
+class ExternalFoodCandidateSerializer(serializers.Serializer):
+    """Résultat de recherche Open Food Facts, avant tout enregistrement.
+
+    Volontairement pauvre : la recherche sert à choisir un produit, pas à
+    l'afficher. Les valeurs nutritionnelles viennent ensuite de l'endpoint
+    produit, seul à faire autorité (spec 11 §3).
+    """
+
+    code = serializers.CharField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    brand = serializers.CharField(read_only=True, allow_blank=True)
+    #: Renseigné quand le produit est déjà en base : l'interface peut ouvrir sa
+    #: fiche sans consommer de quota.
+    food_id = serializers.IntegerField(read_only=True, allow_null=True)

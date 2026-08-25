@@ -19,6 +19,11 @@ nutrition_profile_patterns = [
 
 food_patterns = [
     path("search/", views.FoodSearchView.as_view(), name="search"),
+    path(
+        "external-search/",
+        views.ExternalFoodSearchView.as_view(),
+        name="external-search",
+    ),
     path("recent/", views.FoodRecentView.as_view(), name="recent"),
     path("frequent/", views.FoodFrequentView.as_view(), name="frequent"),
     path("favorites/", views.FoodFavoritesView.as_view(), name="favorites"),
@@ -31,4 +36,8 @@ food_patterns = [
         views.FoodPortionDetailView.as_view(),
         name="portion-detail",
     ),
+]
+
+barcode_patterns = [
+    path("<str:barcode>/", views.BarcodeLookupView.as_view(), name="lookup"),
 ]

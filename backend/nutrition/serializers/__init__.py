@@ -1,6 +1,7 @@
 """Serializers de l'app nutrition, découpés par domaine."""
 
 from .foods import (
+    ExternalFoodCandidateSerializer,
     FoodDetailSerializer,
     FoodListSerializer,
     FoodNutritionSerializer,
@@ -22,6 +23,7 @@ __all__ = [
     "CalorieEstimateSerializer",
     "DailyValuesSerializer",
     "DayOverrideSerializer",
+    "ExternalFoodCandidateSerializer",
     "FoodDetailSerializer",
     "FoodListSerializer",
     "FoodNutritionSerializer",
