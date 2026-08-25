@@ -81,6 +81,7 @@ PATCH  /foods/{id}/portions/{portion_id}/
 DELETE /foods/{id}/portions/{portion_id}/
 
 GET    /barcodes/{barcode}/
+GET    /foods/external-search/?q=nutella
 ```
 
 `DELETE /foods/{id}/` effectue une suppression douce : la fiche disparaît des
@@ -89,7 +90,22 @@ recherches mais reste disponible pour l'historique du journal.
 Une portion créée sur un aliment global appartient à son auteur et n'est
 visible que de lui.
 
-`/barcodes/{barcode}/` arrivera avec l'intégration Open Food Facts.
+`/barcodes/{barcode}/` résout un code dans cet ordre : aliment personnel de
+l'appelant portant ce code, cache local des produits déjà rapatriés, puis
+Open Food Facts. Un produit inconnu répond 404 avec le code
+`product_not_found`, ce qui déclenche la création manuelle côté interface. Une
+source injoignable répond 503 `external_source_unavailable` : les deux cas ne
+doivent jamais être confondus, sous peine de créer des doublons de produits
+existants.
+
+`/foods/external-search/` élargit la recherche à Open Food Facts. Elle n'est
+jamais déclenchée à la frappe et ne persiste rien : elle renvoie des candidats
+(`code`, `name`, `brand`, `food_id` si déjà en base) parmi lesquels seul celui
+qu'ouvre l'utilisateur est mis en cache, via `/barcodes/{code}/`.
+
+Ces deux endpoints ont leur propre quota par utilisateur (`off_barcode`,
+`off_search`), doublé d'un budget global partagé : Open Food Facts limite par
+adresse IP, donc pour l'ensemble des comptes (spec 11 §3).
 
 La recherche renvoie une liste unique ordonnée avec un champ `source`.
 

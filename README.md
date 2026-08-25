@@ -21,6 +21,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Authentification](#authentification)
 - [Objectifs nutritionnels](#objectifs-nutritionnels)
 - [Aliments](#aliments)
+- [Produits de marque et code-barres](#produits-de-marque-et-code-barres)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -335,6 +336,61 @@ correspondance par préfixe, similarité, puis pondération de source.
 Un utilisateur ne corrige jamais une fiche officielle ni celle d'un autre : il en crée sa propre
 version. Une portion ajoutée sur un aliment global reste privée à son auteur.
 
+## Produits de marque et code-barres
+
+Ciqual ne contient que des aliments génériques : « pâte à tartiner » y figure, « Nutella » non.
+Les produits emballés viennent d'[Open Food Facts](https://world.openfoodfacts.org/), interrogée
+par code-barres et mise en cache localement.
+
+### Scanner
+
+`/scanner` lit le code-barres avec l'API `BarcodeDetector` du navigateur quand elle existe, et
+sinon avec ZXing, chargé à la demande — Safari et Firefox ne proposent pas l'API native, donc sur
+iPhone le repli est le cas normal. La bibliothèque reste dans un chunk séparé et n'alourdit pas le
+bundle principal. **La saisie manuelle du code est toujours disponible**, y compris si la caméra
+est refusée ou absente.
+
+Un code inconnu de toutes les sources mène au formulaire de création, code-barres prérempli.
+
+### Ordre de résolution
+
+1. aliment personnel de l'utilisateur portant ce code ;
+2. cache local des produits déjà rapatriés ;
+3. Open Food Facts ;
+4. sinon création manuelle.
+
+Une fiche en cache depuis plus de 30 jours est rafraîchie par une tâche Celery : l'utilisateur
+reçoit la donnée en cache immédiatement, sans attendre le réseau.
+
+### Quotas — le point à ne pas manquer
+
+Open Food Facts limite **par adresse IP** : 15 requêtes par minute pour la lecture de produits,
+10 pour la recherche. Le backend ne présentant qu'une adresse, ce quota est partagé par tous les
+comptes. Deux étages le protègent : un throttling par utilisateur, et un budget global dans Redis
+qui empêche tout appel sortant une fois épuisé.
+
+C'est pourquoi la recherche texte sur Open Food Facts n'est **jamais** déclenchée à la frappe :
+elle demande un clic explicite sur « Chercher sur Open Food Facts ».
+
+`OFF_ENABLED=False` coupe la source sans redéploiement ; la recherche locale, Ciqual et les
+aliments personnels continuent de fonctionner normalement.
+
+### Trois pièges de conversion
+
+Vérifiés sur des produits réels, chacun couvert par un test :
+
+| Piège | Détail |
+| --- | --- |
+| Énergie | `energy_100g` est en kJ (2252 pour le Nutella), `energy-kcal_100g` en kcal (539) |
+| Unités | les micronutriments sont en **grammes** (`calcium_100g = 0.148`), le modèle en mg et µg |
+| Portions | `nutrition_data_per` peut valoir `serving` ; seules les clés `_100g` sont lues |
+
+Les valeurs aberrantes — la base est collaborative — sont écartées plutôt que tronquées, et les
+fiches importées ne sont jamais marquées « vérifiées ».
+
+> **Attribution.** Données issues d'Open Food Facts, sous licence ODbL. Une revue de licence
+> s'impose avant toute diffusion publique, la base étant combinée avec Ciqual.
+
 ## Tests, lint et typecheck
 
 ### Backend
@@ -393,12 +449,16 @@ fichiers d'environnement de sa propre racine.
 | CORS / CSRF | `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` |
 | Cookies d'auth | `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAMESITE`, `AUTH_COOKIE_DOMAIN`, `AUTH_COOKIE_REFRESH_PATH` |
 | Mot de passe | `PASSWORD_RESET_TIMEOUT` (durée du lien de réinitialisation, en secondes) |
+| Open Food Facts | `OFF_ENABLED`, `OFF_PRODUCT_URL`, `OFF_SEARCH_URL`, `OFF_CONTACT_EMAIL`, `OFF_USER_AGENT`, `OFF_CONNECT_TIMEOUT`, `OFF_READ_TIMEOUT`, `OFF_PRODUCT_RATE_PER_MINUTE`, `OFF_SEARCH_RATE_PER_MINUTE`, `OFF_CACHE_TTL_DAYS` |
 | IA | `AI_ENABLED`, `ANTHROPIC_API_KEY`, `AI_MEAL_SCAN_MODEL`, `AI_MEAL_PLANNER_MODEL`, `AI_VOICE_PARSING_MODEL`, `AI_RECIPE_MODEL` |
 | Email | `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` |
 | Stockage S3 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION` |
 | Uploads | `MAX_UPLOAD_SIZE_MB` |
 | Ports Docker | `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, `MAILPIT_UI_PORT`, `MAILPIT_SMTP_PORT` |
 | Frontend | `VITE_API_BASE_URL` (dans `frontend/.env`) |
+
+Renseignez `OFF_CONTACT_EMAIL` : Open Food Facts exige un User-Agent identifiant l'application
+et un contact, faute de quoi les appels risquent d'être pris pour ceux d'un robot.
 
 Les variables IA et S3 sont déclarées et lues, mais aucune fonctionnalité ne les utilise encore.
 
