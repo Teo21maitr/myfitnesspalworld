@@ -9,6 +9,10 @@ import {
   RequireOnboarding,
 } from '@/features/auth/require-auth'
 import { AccountPage } from '@/pages/account-page'
+import { EditFoodPage } from '@/pages/foods/edit-food-page'
+import { FoodDetailPage } from '@/pages/foods/food-detail-page'
+import { FoodSearchPage } from '@/pages/foods/food-search-page'
+import { MyFoodsPage } from '@/pages/foods/my-foods-page'
 import { GoalsPage } from '@/pages/goals-page'
 import { ForgotPasswordPage } from '@/pages/auth/forgot-password-page'
 import { LoginPage } from '@/pages/auth/login-page'
@@ -67,6 +71,10 @@ export const routes = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'journal', element: <JournalPage /> },
+      { path: 'aliments', element: <FoodSearchPage /> },
+      { path: 'aliments/:id', element: <FoodDetailPage /> },
+      { path: 'mes-aliments', element: <MyFoodsPage /> },
+      { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
       { path: 'compte', element: <AccountPage /> },
       { path: '*', element: <NotFoundPage /> },

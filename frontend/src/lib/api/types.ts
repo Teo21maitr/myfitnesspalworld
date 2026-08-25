@@ -152,3 +152,77 @@ export interface UserSettings {
 export interface DetailResponse {
   detail: string
 }
+
+export type FoodSource = 'ciqual' | 'off' | 'user' | 'generated'
+
+export type FoodVisibility = 'private' | 'specific_users' | 'app_users'
+
+export type UnitType = 'g' | 'ml' | 'unit'
+
+/**
+ * Valeurs nutritionnelles pour la quantité de référence.
+ *
+ * Une valeur absente vaut `null` et doit s'afficher « — », jamais 0
+ * (spec 01 §8).
+ */
+export interface FoodNutrition {
+  energy_kcal: string | null
+  protein_g: string | null
+  carbohydrates_g: string | null
+  fat_g: string | null
+  fiber_g: string | null
+  sugars_g: string | null
+  sodium_mg: string | null
+  salt_g: string | null
+  cholesterol_mg: string | null
+  potassium_mg: string | null
+  calcium_mg: string | null
+  iron_mg: string | null
+  magnesium_mg: string | null
+  vitamin_a_ug: string | null
+  vitamin_b6_mg: string | null
+  vitamin_b12_ug: string | null
+  vitamin_c_mg: string | null
+  vitamin_d_ug: string | null
+  vitamin_e_mg: string | null
+  vitamin_k_ug: string | null
+  net_carbs_g: string | null
+}
+
+export interface FoodPortion {
+  id: number
+  name: string
+  gram_equivalent: string | null
+  milliliter_equivalent: string | null
+  unit_equivalent: string | null
+  is_default: boolean
+  sort_order: number
+  is_own: boolean
+}
+
+/** Ligne de résultat de recherche. */
+export interface FoodListItem {
+  id: number
+  name: string
+  brand: string
+  source: FoodSource
+  source_label: string
+  reference_amount: string
+  reference_unit: UnitType
+  energy_kcal: string | null
+  is_favorite: boolean
+  is_own: boolean
+  is_verified: boolean
+}
+
+/** Fiche complète d'un aliment. */
+export interface FoodDetail extends FoodListItem {
+  barcode: string | null
+  visibility: FoodVisibility
+  default_unit_type: UnitType
+  nutrition: FoodNutrition | null
+  portions: FoodPortion[]
+  is_editable: boolean
+  created_at: string
+  updated_at: string
+}
