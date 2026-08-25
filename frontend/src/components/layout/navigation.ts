@@ -1,4 +1,12 @@
-import { Apple, BookOpen, Home, Target, UserRound, type LucideIcon } from 'lucide-react'
+import {
+  Apple,
+  BookOpen,
+  Home,
+  ScanBarcode,
+  Target,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -17,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Accueil', Icon: Home },
   { to: '/journal', label: 'Journal', Icon: BookOpen },
   { to: '/aliments', label: 'Aliments', Icon: Apple },
+  { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
   { to: '/objectifs', label: 'Objectifs', Icon: Target },
   { to: '/compte', label: 'Compte', Icon: UserRound },
 ]
