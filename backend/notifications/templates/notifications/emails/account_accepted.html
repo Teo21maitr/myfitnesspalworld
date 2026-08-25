@@ -1,0 +1,14 @@
+{% extends "notifications/emails/base.html" %}
+{% block title %}Votre compte a été activé{% endblock %}
+{% block content %}
+  <p style="margin:0 0 16px;">Bonjour {{ first_name|default:username }},</p>
+  <p style="margin:0 0 16px;">Votre demande de compte MyFitnessPalworld a été acceptée.</p>
+  <p style="margin:0 0 16px;">
+    Vous pouvez dès à présent vous connecter avec le nom d'utilisateur
+    <strong>{{ username }}</strong> et le mot de passe que vous avez choisi lors de votre demande.
+  </p>
+  <p style="margin:0 0 24px;">
+    <a href="{{ login_url }}" style="display:inline-block;background-color:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Se connecter</a>
+  </p>
+  <p style="margin:0;">À bientôt,<br />L'équipe MyFitnessPalworld</p>
+{% endblock %}

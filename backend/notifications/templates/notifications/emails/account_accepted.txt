@@ -1,0 +1,11 @@
+Bonjour {{ first_name|default:username }},
+
+Votre demande de compte MyFitnessPalworld a été acceptée.
+
+Vous pouvez dès à présent vous connecter avec le nom d'utilisateur « {{ username }} »
+et le mot de passe que vous avez choisi lors de votre demande :
+
+{{ login_url }}
+
+À bientôt,
+L'équipe MyFitnessPalworld

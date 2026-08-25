@@ -1,0 +1,7 @@
+Bonjour {{ first_name }},
+
+Votre demande de compte MyFitnessPalworld n'a pas été retenue.
+
+Vous pouvez soumettre une nouvelle demande ultérieurement.
+
+L'équipe MyFitnessPalworld
