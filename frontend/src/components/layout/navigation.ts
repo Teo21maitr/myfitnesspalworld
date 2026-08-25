@@ -1,4 +1,4 @@
-import { BookOpen, Home, type LucideIcon } from 'lucide-react'
+import { BookOpen, Home, Target, UserRound, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -7,7 +7,7 @@ export interface NavItem {
 }
 
 /**
- * Navigation du socle.
+ * Navigation de la zone privée.
  *
  * La structure complète (Accueil, Journal, +, Progression, Profil sur mobile ;
  * sidebar sur desktop) est décrite par la spec 06 §2 et §3 ; seules les pages
@@ -16,4 +16,6 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Accueil', Icon: Home },
   { to: '/journal', label: 'Journal', Icon: BookOpen },
+  { to: '/objectifs', label: 'Objectifs', Icon: Target },
+  { to: '/compte', label: 'Compte', Icon: UserRound },
 ]
