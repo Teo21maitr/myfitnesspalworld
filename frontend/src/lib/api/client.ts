@@ -13,6 +13,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001
 const CSRF_COOKIE_NAME = 'mfp_csrftoken'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
+/** Routes qui ne doivent jamais déclencher de rafraîchissement de session. */
+const AUTH_PATHS = [
+  '/auth/login/',
+  '/auth/logout/',
+  '/auth/refresh/',
+  '/auth/csrf/',
+  '/auth/register-request/',
+  '/auth/forgot-password/',
+  '/auth/reset-password/',
+]
+
 /** Erreur d'API portant le format normalisé du backend. */
 export class ApiError extends Error {
   readonly status: number
@@ -83,7 +94,8 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
   return url.toString()
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/** Exécute la requête et convertit les échecs en `ApiError` / `NetworkError`. */
+async function performRequest<T>(path: string, options: RequestOptions): Promise<T> {
   const { json, params, headers, ...init } = options
   const method = (init.method ?? 'GET').toUpperCase()
 
@@ -138,13 +150,79 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return payload as T
 }
 
+/**
+ * Rafraîchissement silencieux de la session.
+ *
+ * Les appels concurrents partagent la même promesse : une seule rotation de
+ * token est déclenchée même si plusieurs requêtes échouent en même temps.
+ */
+let refreshPromise: Promise<unknown> | null = null
+
+function refreshSession(): Promise<unknown> {
+  refreshPromise ??= performRequest('/auth/refresh/', { method: 'POST' }).finally(() => {
+    refreshPromise = null
+  })
+  return refreshPromise
+}
+
+type UnauthorizedHandler = () => void
+let onUnauthorized: UnauthorizedHandler | null = null
+
+/** Enregistre l'action à exécuter quand la session est définitivement perdue. */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  onUnauthorized = handler
+}
+
+/** Amorce le cookie CSRF avant la première écriture de la session. */
+async function ensureCsrfCookie(): Promise<void> {
+  if (readCookie(CSRF_COOKIE_NAME)) return
+
+  try {
+    await performRequest('/auth/csrf/', { method: 'GET' })
+  } catch {
+    // L'absence de cookie CSRF se manifestera par une 403 explicite, plus
+    // parlante qu'un échec silencieux ici.
+  }
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase()
+
+  if (UNSAFE_METHODS.has(method)) {
+    await ensureCsrfCookie()
+  }
+
+  try {
+    return await performRequest<T>(path, options)
+  } catch (error) {
+    const isAuthRoute = AUTH_PATHS.some((authPath) => path.startsWith(authPath))
+
+    if (!(error instanceof ApiError) || !error.isUnauthorized || isAuthRoute) {
+      throw error
+    }
+
+    // L'access token a expiré : une seule tentative de renouvellement, puis un
+    // unique rejeu de la requête d'origine.
+    try {
+      await refreshSession()
+    } catch {
+      onUnauthorized?.()
+      throw error
+    }
+
+    return performRequest<T>(path, options)
+  }
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) =>
     apiRequest<T>(path, { ...options, method: 'GET' }),
   post: <T>(path: string, json?: unknown, options?: RequestOptions) =>
     apiRequest<T>(path, { ...options, method: 'POST', json }),
+  put: <T>(path: string, json?: unknown, options?: RequestOptions) =>
+    apiRequest<T>(path, { ...options, method: 'PUT', json }),
   patch: <T>(path: string, json?: unknown, options?: RequestOptions) =>
     apiRequest<T>(path, { ...options, method: 'PATCH', json }),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    apiRequest<T>(path, { ...options, method: 'DELETE' }),
+  delete: <T>(path: string, json?: unknown, options?: RequestOptions) =>
+    apiRequest<T>(path, { ...options, method: 'DELETE', json }),
 }

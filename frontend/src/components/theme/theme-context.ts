@@ -1,6 +1,9 @@
 import { createContext } from 'react'
 
-export type Theme = 'light' | 'dark' | 'system'
+import type { ThemeMode } from '@/lib/api/types'
+
+/** Le thème partage le vocabulaire de l'API (`UserSettings.theme_mode`). */
+export type Theme = ThemeMode
 
 export interface ThemeContextValue {
   /** Préférence choisie par l'utilisateur. */

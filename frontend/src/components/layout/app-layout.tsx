@@ -1,15 +1,19 @@
 import { Outlet } from 'react-router-dom'
 
 import { ThemeToggle } from '@/components/theme/theme-toggle'
+import { ThemeSync } from '@/features/settings/use-settings'
 
 import { BottomNav } from './bottom-nav'
 import { OfflineBanner } from './offline-banner'
 import { Sidebar } from './sidebar'
 
-/** Coquille applicative : mobile-first, sidebar à partir de `md`. */
+/** Coquille de la zone privée : mobile-first, sidebar à partir de `md`. */
 export function AppLayout() {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-dvh flex-col">
+      {/* Aligne le thème local sur la préférence enregistrée du compte. */}
+      <ThemeSync />
+
       <OfflineBanner />
 
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3">

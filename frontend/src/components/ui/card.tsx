@@ -25,9 +25,20 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+/**
+ * Titre de carte.
+ *
+ * `as` permet d'émettre un vrai titre (`h1`, `h2`...) quand la carte porte le
+ * titre de la page : les lecteurs d'écran ont besoin de cette hiérarchie
+ * (spec 06 §12).
+ */
+function CardTitle({
+  className,
+  as: Comp = 'div',
+  ...props
+}: React.ComponentProps<'div'> & { as?: 'div' | 'h1' | 'h2' | 'h3' }) {
   return (
-    <div
+    <Comp
       data-slot="card-title"
       className={cn('font-semibold leading-none', className)}
       {...props}

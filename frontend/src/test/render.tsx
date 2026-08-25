@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom'
 
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { routes } from '@/router'
 
 /** QueryClient silencieux et déterministe pour les tests. */
 export function createTestQueryClient(): QueryClient {
@@ -15,6 +16,14 @@ export function createTestQueryClient(): QueryClient {
   })
 }
 
+function Providers({ children, queryClient }: { children: ReactNode; queryClient: QueryClient }) {
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
+  )
+}
+
 export function renderWithProviders(
   ui: ReactElement,
   {
@@ -24,13 +33,31 @@ export function renderWithProviders(
 ) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter>{children}</MemoryRouter>
-        </QueryClientProvider>
-      </ThemeProvider>
+      <Providers queryClient={queryClient}>
+        <MemoryRouter>{children}</MemoryRouter>
+      </Providers>
     )
   }
 
   return { queryClient, ...render(ui, { wrapper: Wrapper, ...options }) }
+}
+
+/**
+ * Monte l'arbre de routes réel de l'application.
+ *
+ * Indispensable pour vérifier les gardes de route et les redirections.
+ */
+export function renderRoute(
+  initialPath = '/',
+  { queryClient = createTestQueryClient() }: { queryClient?: QueryClient } = {},
+) {
+  const router = createMemoryRouter(routes, { initialEntries: [initialPath] })
+
+  const result = render(
+    <Providers queryClient={queryClient}>
+      <RouterProvider router={router} />
+    </Providers>,
+  )
+
+  return { ...result, router, queryClient }
 }
