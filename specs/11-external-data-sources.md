@@ -4,12 +4,48 @@
 
 Sources :
 
-1. **Ciqual 2025** : aliments génériques français.
+1. **Ciqual** : aliments génériques français (version 2020, seule diffusée publiquement à ce jour).
 2. **Open Food Facts** : produits emballés / marques / code-barres.
 3. **Aliments utilisateur** : base interne.
 4. **USDA FoodData Central** : fallback facultatif ultérieur.
 
 ## 2. Ciqual
+
+### Ce que contient réellement le jeu
+
+| Fichier | Contenu | Volume |
+| --- | --- | --- |
+| `alim_*.xml` | aliments | 3 185 |
+| `const_*.xml` | constituants | 67 |
+| `compo_*.xml` | composition | 211 898 lignes, 55 Mo |
+| `alim_grp_*.xml` | groupes | 136 |
+
+Deux pièges vérifiés à l'implémentation :
+
+1. l'encodage est **`windows-1252`** et les décimales utilisent la **virgule** ;
+2. les fichiers **ne sont pas du XML bien formé** : le texte contient des `<`
+   bruts, dans les noms (`Panaché préemballé (<1° alc.)`) et dans les milliers
+   de teneurs de la forme `< 0,01`. Ils doivent être échappés avant analyse.
+
+### Interprétation des teneurs
+
+| Valeur | Signification | Stockage |
+| --- | --- | --- |
+| `-` | non mesurée | `NULL` |
+| `traces` | mesurée, négligeable | `0` |
+| `< 0,01` | mesurée sous le seuil de détection | `0` |
+| `59,7` | valeur | `Decimal` |
+
+Un tiret n'est pas un zéro : c'est la règle de la spec 01 §8.
+
+### Vitamine A
+
+Ciqual ne publie pas de vitamine A : elle se reconstitue à partir du rétinol
+et du bêta-carotène, selon la convention européenne.
+
+```text
+vitamine A (µg RE) = rétinol + bêta-carotène / 6
+```
 
 Approche :
 
@@ -23,7 +59,7 @@ Approche :
 
 Attribution à conserver dans l'application/documentation :
 
-`Anses. 2025. Table de composition nutritionnelle des aliments Ciqual`
+`Anses. 2020. Table de composition nutritionnelle des aliments Ciqual`
 
 Les données sont réutilisables selon les conditions de la Licence Ouverte et la source/version doivent être indiquées.
 

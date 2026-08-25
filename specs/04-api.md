@@ -75,8 +75,21 @@ GET    /foods/favorites/
 POST   /foods/{id}/favorite/
 DELETE /foods/{id}/favorite/
 
+GET    /foods/{id}/portions/
+POST   /foods/{id}/portions/
+PATCH  /foods/{id}/portions/{portion_id}/
+DELETE /foods/{id}/portions/{portion_id}/
+
 GET    /barcodes/{barcode}/
 ```
+
+`DELETE /foods/{id}/` effectue une suppression douce : la fiche disparaît des
+recherches mais reste disponible pour l'historique du journal.
+
+Une portion créée sur un aliment global appartient à son auteur et n'est
+visible que de lui.
+
+`/barcodes/{barcode}/` arrivera avec l'intégration Open Food Facts.
 
 La recherche renvoie une liste unique ordonnée avec un champ `source`.
 

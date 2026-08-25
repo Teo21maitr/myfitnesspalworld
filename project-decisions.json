@@ -42,7 +42,7 @@
   "water_tracking": false,
   "ai_provider_initial": "Anthropic",
   "food_sources": [
-    "Ciqual 2025",
+    "Ciqual 2020",
     "Open Food Facts",
     "User foods"
   ],

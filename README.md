@@ -5,11 +5,10 @@ PWA mobile-first de suivi alimentaire et nutritionnel, à usage privé.
 Ce dépôt est un monorepo : un backend Django/DRF, un frontend React/Vite, et le corpus de
 spécifications qui fait foi pour toutes les règles métier.
 
-> **État actuel : comptes, authentification et objectifs nutritionnels.** Un utilisateur peut
-> demander un compte, être accepté par l'administrateur, se connecter, dérouler l'onboarding,
-> obtenir un objectif calorique calculé et gérer ses objectifs. Les fonctionnalités de suivi
-> alimentaire (journal, aliments, recettes, planner, progression, social, IA) ne sont pas encore
-> implémentées.
+> **État actuel : comptes, objectifs et référentiel d'aliments.** Un utilisateur peut demander un
+> compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif calorique calculé,
+> puis rechercher parmi les 3 185 aliments de la table Ciqual et créer ses propres aliments. Le
+> journal, les recettes, le planner, la progression, le social et l'IA restent à faire.
 
 ## Sommaire
 
@@ -21,6 +20,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Superutilisateur](#superutilisateur)
 - [Authentification](#authentification)
 - [Objectifs nutritionnels](#objectifs-nutritionnels)
+- [Aliments](#aliments)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -136,6 +136,8 @@ Migrations existantes :
 | `notifications/0001_initial` | `EmailLog` |
 | `accounts/0003_update_username_validator_message` | message de validation du username |
 | `nutrition/0001_initial` | `NutritionGoal`, `NutritionGoalDayOverride` |
+| `nutrition/0002_food_…` | `Food`, `FoodNutrition`, `FoodPortion`, favoris, historique |
+| `nutrition/0003_fix_food_portion_unique_nulls` | unicité des portions officielles |
 | `progress/0001_initial` | `WeightEntry` |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
@@ -271,6 +273,68 @@ Après sa première connexion, l'utilisateur est redirigé vers `/onboarding` et
 à l'application avant de l'avoir terminé. Le parcours compte 7 étapes (profil, objectif, activité,
 rythme, calories, macros, résumé) et n'écrit qu'à la fin, en une seule transaction.
 
+## Aliments
+
+### Import de la table Ciqual
+
+Le jeu de données n'est pas versionné : trop volumineux et sous licence distincte. Téléchargez-le
+sur [ciqual.anses.fr](https://ciqual.anses.fr/) (archive XML), puis :
+
+```bash
+docker compose exec backend python manage.py import_ciqual /chemin/vers/ciqual
+```
+
+L'import accepte un dossier ou une archive ZIP, lit les 55 Mo de composition en flux et se termine
+en quelques secondes pour 3 185 aliments. Il est **idempotent** : le relancer met à jour les fiches
+au lieu de les dupliquer. `--sample N` limite l'import pour le développement.
+
+Un extrait réel de 40 aliments est versionné dans `backend/nutrition/tests/fixtures/ciqual` pour
+les tests et le parcours E2E.
+
+> **Attribution.** Anses. 2020. Table de composition nutritionnelle des aliments Ciqual. Données
+> réutilisables selon la Licence Ouverte, à condition d'indiquer la source et la version.
+
+### Deux pièges du fichier officiel
+
+L'encodage est `windows-1252` et les décimales utilisent la virgule. Surtout, **les fichiers ne
+sont pas du XML bien formé** : le texte contient des `<` bruts, dans les noms comme
+« Panaché préemballé (<1° alc.) » et dans les milliers de teneurs « < 0,01 ». L'importeur les
+échappe à la volée, ligne par ligne, sans quitter le mode flux.
+
+### Inconnu n'est pas zéro
+
+C'est la règle qui décide de la qualité de toute la base (spec 01 §8) :
+
+| Valeur Ciqual | Interprétation | Stockage |
+| --- | --- | --- |
+| `-` | non mesurée | `NULL`, affiché « — » |
+| `traces` | mesurée, négligeable | `0` |
+| `< 0,01` | mesurée sous le seuil | `0` |
+
+La vitamine A n'est pas publiée telle quelle : elle est reconstituée en équivalents rétinol,
+`rétinol + bêta-carotène / 6`, selon la convention européenne.
+
+### Recherche
+
+À partir de deux caractères, insensible à la casse et aux accents, tolérante aux fautes : « pate »
+trouve « Pâté », « poulets » trouve « Poulet ». Tout est résolu par PostgreSQL en une requête, avec
+un index GIN trigramme sur un texte désaccentué — environ 10 ms sur les 3 185 aliments.
+
+Le classement suit l'ordre de la spec 01 §7 : favoris, récents, fréquents, correspondance exacte,
+correspondance par préfixe, similarité, puis pondération de source.
+
+### Permissions
+
+| Source | Lecture | Écriture |
+| --- | --- | --- |
+| Ciqual | tout compte actif | admin, désactivation uniquement |
+| Aliment personnel (propriétaire) | oui | CRUD complet |
+| Aliment personnel partagé à tous | tout compte actif | jamais |
+| Aliment personnel privé | propriétaire seul | propriétaire seul |
+
+Un utilisateur ne corrige jamais une fiche officielle ni celle d'un autre : il en crée sa propre
+version. Une portion ajoutée sur un aliment global reste privée à son auteur.
+
 ## Tests, lint et typecheck
 
 ### Backend
@@ -297,9 +361,9 @@ npm run build             # build de production
 
 ### Bout en bout (Playwright)
 
-Le parcours couvre demande d'inscription → validation administrateur → connexion → onboarding
-complet → route privée → déconnexion. Playwright démarre lui-même le backend et un build servi en
-statique.
+Deux parcours : cycle de vie du compte (inscription → validation → connexion → onboarding →
+route privée → déconnexion) et aliments (recherche → fiche → favori → création). Playwright démarre
+lui-même le backend et un build servi en statique.
 
 ```bash
 cd frontend
@@ -347,7 +411,7 @@ myfitnesspalworld/
 │   ├── accounts/          # User, demandes d'inscription, profil, API auth
 │   │   ├── services/      # inscription, sessions et cookies
 │   │   └── management/    # accept_/reject_registration_request
-│   ├── nutrition/         # objectifs nutritionnels, calcul calorique, onboarding
+│   ├── nutrition/         # objectifs, calcul calorique, onboarding, aliments et recherche
 │   ├── progress/          # suivi du poids
 │   ├── notifications/     # EmailLog et service d'envoi d'emails
 │   ├── common/            # health check, format d'erreur, pagination, permissions
@@ -358,7 +422,7 @@ myfitnesspalworld/
 │   ├── src/
 │   │   ├── lib/           # client API (refresh silencieux, CSRF), QueryClient
 │   │   ├── components/    # ui (shadcn), layout, formulaires, thème
-│   │   ├── features/      # auth, account, onboarding, goals, settings, health
+│   │   ├── features/      # auth, account, onboarding, goals, foods, settings, health
 │   │   └── pages/         # écrans publics et privés
 │   ├── e2e/               # parcours Playwright
 │   └── public/            # icônes PWA
