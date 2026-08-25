@@ -108,12 +108,63 @@ Le calcul :
 - utilise une formule métabolique standard déterministe ;
 - applique un coefficient d'activité ;
 - applique le déficit/surplus correspondant au rythme choisi ;
-- n'utilise jamais l'IA.
+- n'utilise jamais l'IA ;
+- s'effectue exclusivement côté backend.
+
+### Formule retenue
+
+Métabolisme de base, **Mifflin-St Jeor** :
+
+```text
+homme : 10 * poids(kg) + 6.25 * taille(cm) - 5 * age + 5
+femme : 10 * poids(kg) + 6.25 * taille(cm) - 5 * age - 161
+```
+
+Coefficients d'activité appliqués au métabolisme de base :
+
+| Niveau | Coefficient |
+| --- | --- |
+| Sédentaire | 1,2 |
+| Légèrement actif | 1,375 |
+| Modérément actif | 1,55 |
+| Très actif | 1,725 |
+| Extrêmement actif | 1,9 |
+
+Déficit ou surplus : 1 kg de masse grasse vaut environ 7 700 kcal, soit
+
+```text
+delta_journalier = rythme_kg_par_semaine * 1100
+```
+
+soustrait en perte, ajouté en prise, ignoré en maintien.
+
+### Proposition de macronutriments
+
+Répartition en pourcentage des calories, toujours remplaçable manuellement :
+
+| Objectif | Protéines | Lipides | Glucides |
+| --- | --- | --- | --- |
+| Perte | 30 % | 30 % | 40 % |
+| Maintien | 25 % | 30 % | 45 % |
+| Prise | 25 % | 30 % | 45 % |
+
+### Avertissements
 
 Si la valeur semble potentiellement déraisonnable :
 
 - afficher un avertissement ;
 - ne pas bloquer la saisie manuelle.
+
+Seuils déclenchant un avertissement :
+
+- calories sous 1 200 kcal (femme) ou 1 500 kcal (homme) ;
+- rythme supérieur à 1 kg par semaine ;
+- poids cible correspondant à un IMC inférieur à 18,5.
+
+### Règles bloquantes
+
+- âge inférieur à 18 ans ;
+- objectif de perte avec un poids cible supérieur au poids actuel, ou l'inverse.
 
 Texte attendu :
 

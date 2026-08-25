@@ -32,8 +32,32 @@ PATCH /profile/settings/
 
 GET   /profile/goals/
 POST  /profile/goals/
+GET   /profile/goals/{id}/
 PATCH /profile/goals/{id}/
+
+GET    /profile/goals/current/
+POST   /profile/goals/calculate/
+PUT    /profile/goals/{id}/overrides/{weekday}/
+DELETE /profile/goals/{id}/overrides/{weekday}/
+
+POST  /profile/onboarding/
 ```
+
+`POST /profile/onboarding/` soumet le parcours complet de façon
+transactionnelle : profil, première pesée et objectif initial. Soit tout
+réussit, soit rien n'est écrit. Un second appel est refusé.
+
+`POST /profile/goals/calculate/` renvoie un aperçu du calcul sans rien
+persister, afin que le frontend n'ait jamais à dupliquer la formule.
+
+`GET /profile/goals/current/` renvoie l'objectif applicable et les valeurs du
+jour, surcharge de jour de semaine appliquée.
+
+`{weekday}` suit la convention Python : 0 pour lundi, 6 pour dimanche.
+
+Créer un objectif clôt le précédent à la veille de la nouvelle période : un
+changement n'est jamais rétroactif. Si un objectif commence déjà à la date
+demandée, il est mis à jour au lieu d'être dupliqué.
 
 ## 3. Foods
 
