@@ -4,3 +4,5 @@
 pytest==9.1.1
 pytest-django==4.14.0
 ruff==0.16.4
+# Simule les réponses HTTP : aucun test ne doit toucher le réseau réel.
+responses==0.26.2

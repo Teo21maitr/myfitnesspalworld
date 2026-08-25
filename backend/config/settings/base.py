@@ -184,6 +184,11 @@ REST_FRAMEWORK = {
         # à chaque chargement : il lui faut son propre quota, sans quoi une
         # simple navigation épuiserait celui de la connexion.
         "refresh": "60/min",
+        # Open Food Facts limite par adresse IP : le budget est commun à tous
+        # les comptes. Ces quotas par utilisateur empêchent qu'un seul le
+        # consomme entièrement ; un budget global les complète (spec 11 §3).
+        "off_barcode": "30/min",
+        "off_search": "10/min",
         "ai": "30/hour",
     },
 }
@@ -246,6 +251,31 @@ EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="MyFitnessPalworld <noreply@localhost>")
+
+# -----------------------------------------------------------------------------
+# Open Food Facts (spec 11 §3)
+# -----------------------------------------------------------------------------
+# Coupe-circuit : la source peut être désactivée sans redéploiement. La
+# recherche locale, Ciqual et les aliments personnels continuent de fonctionner.
+OFF_ENABLED = env.bool("OFF_ENABLED", default=True)
+OFF_PRODUCT_URL = env.str("OFF_PRODUCT_URL", default="https://world.openfoodfacts.org")
+# L'endpoint de recherche historique (/api/v2/search) est hors service ; la
+# recherche passe par Search-a-licious.
+OFF_SEARCH_URL = env.str("OFF_SEARCH_URL", default="https://search.openfoodfacts.org")
+# Open Food Facts exige un User-Agent identifiant l'application et un contact.
+OFF_CONTACT_EMAIL = env.str("OFF_CONTACT_EMAIL", default="")
+OFF_USER_AGENT = env.str(
+    "OFF_USER_AGENT",
+    default=f"MyFitnessPalworld/1.0 ({OFF_CONTACT_EMAIL or 'contact-non-configure'})",
+)
+OFF_CONNECT_TIMEOUT = env.float("OFF_CONNECT_TIMEOUT", default=3.0)
+OFF_READ_TIMEOUT = env.float("OFF_READ_TIMEOUT", default=8.0)
+# Quotas annoncés par Open Food Facts, par adresse IP et non par utilisateur :
+# le backend les partage entre tous les comptes (spec 11 §3).
+OFF_PRODUCT_RATE_PER_MINUTE = env.int("OFF_PRODUCT_RATE_PER_MINUTE", default=15)
+OFF_SEARCH_RATE_PER_MINUTE = env.int("OFF_SEARCH_RATE_PER_MINUTE", default=10)
+# Au-delà, une fiche en cache est rafraîchie en tâche de fond (spec 11 §3).
+OFF_CACHE_TTL_DAYS = env.int("OFF_CACHE_TTL_DAYS", default=30)
 
 # -----------------------------------------------------------------------------
 # IA — configuration seulement, aucun appel dans le socle (spec 07 §3)

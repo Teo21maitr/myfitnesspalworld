@@ -1,0 +1,100 @@
+{
+    "hits": [
+        {
+            "code": "0009800800049",
+            "brands": [
+                "Nutella"
+            ],
+            "product_name": "Nutella & go! hazelnut spread + breadsticks"
+        },
+        {
+            "code": "0098008952506",
+            "brands": [
+                "Nutella"
+            ],
+            "product_name": "Nutella"
+        },
+        {
+            "code": "0613460834124",
+            "brands": [
+                "Nutella"
+            ],
+            "product_name": "nutella"
+        }
+    ],
+    "aggregations": null,
+    "facets": {},
+    "charts": {},
+    "page": 1,
+    "page_size": 3,
+    "page_count": 211,
+    "debug": {
+        "query": {
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "match_phrase": {
+                                "product_name.en": {
+                                    "query": "nutella",
+                                    "boost": 2.0
+                                }
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "generic_name.en": {
+                                    "query": "nutella",
+                                    "boost": 2.0
+                                }
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "categories.en": {
+                                    "query": "nutella",
+                                    "boost": 2.0
+                                }
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "labels.en": {
+                                    "query": "nutella",
+                                    "boost": 2.0
+                                }
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "brands": {
+                                    "query": "nutella",
+                                    "boost": 2.0
+                                }
+                            }
+                        },
+                        {
+                            "multi_match": {
+                                "query": "nutella",
+                                "fields": [
+                                    "product_name.en",
+                                    "generic_name.en",
+                                    "categories.en",
+                                    "labels.en",
+                                    "brands"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "size": 3,
+            "from": 0
+        }
+    },
+    "took": 4,
+    "timed_out": false,
+    "count": 631,
+    "is_count_exact": true,
+    "warnings": null
+}

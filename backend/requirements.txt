@@ -15,6 +15,9 @@ django-environ==0.14.0
 # Parsing XML durci, utilisé par l'import Ciqual
 defusedxml==0.7.1
 
+# Client HTTP des sources externes (Open Food Facts)
+requests==2.34.2
+
 # Tâches asynchrones
 celery[redis]==5.6.3
 # redis-py est contraint par kombu (celery) : redis<6.5
