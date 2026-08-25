@@ -6,6 +6,7 @@ import {
   addFavorite,
   createFood,
   deleteFood,
+  externalSearchQueryKey,
   fetchFavorites,
   fetchFood,
   fetchFrequent,
@@ -14,8 +15,10 @@ import {
   foodDetailQueryKey,
   foodSearchQueryKey,
   foodsQueryKey,
+  lookupBarcode,
   myFoodsQueryKey,
   removeFavorite,
+  searchExternalFoods,
   searchFoods,
   updateFood,
   type FoodPayload,
@@ -126,4 +129,34 @@ export function useUpdateFood(id: number) {
 export function useDeleteFood() {
   const invalidate = useFoodInvalidation()
   return useMutation({ mutationFn: deleteFood, onSuccess: invalidate })
+}
+
+/**
+ * Recherche élargie à Open Food Facts.
+ *
+ * Déclenchée uniquement quand l'utilisateur la demande : le quota de la source
+ * est partagé par tous les comptes (spec 11 §5). Le résultat est conservé
+ * longtemps en cache pour ne pas le redépenser sur la même requête.
+ */
+export function useExternalFoodSearch(query: string) {
+  const trimmed = query.trim()
+
+  return useQuery({
+    queryKey: externalSearchQueryKey(trimmed),
+    queryFn: () => searchExternalFoods(trimmed),
+    enabled: trimmed.length >= MINIMUM_QUERY_LENGTH,
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+}
+
+/**
+ * Résolution d'un code-barres.
+ *
+ * Une mutation plutôt qu'une requête : la recherche est déclenchée par un
+ * geste (scan ou validation d'une saisie), et son échec — produit inconnu —
+ * fait partie du parcours normal.
+ */
+export function useBarcodeLookup() {
+  return useMutation({ mutationFn: lookupBarcode })
 }

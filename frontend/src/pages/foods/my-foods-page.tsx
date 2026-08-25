@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,11 @@ import { describeError } from '@/lib/query-client'
 export function MyFoodsPage() {
   const { data, error, isPending } = useMyFoods()
   const remove = useDeleteFood()
-  const [creating, setCreating] = useState(false)
+  // Un scan infructueux mène ici avec le code déjà connu : le formulaire
+  // s'ouvre prérempli plutôt que de faire recopier le code (spec 01 §10).
+  const [searchParams] = useSearchParams()
+  const prefilledBarcode = searchParams.get('barcode') ?? undefined
+  const [creating, setCreating] = useState(searchParams.get('creer') === '1')
 
   const foods = data?.results ?? []
 
@@ -39,11 +43,13 @@ export function MyFoodsPage() {
           <CardHeader>
             <CardTitle as="h2">Nouvel aliment</CardTitle>
             <CardDescription>
-              Les valeurs portent sur la quantité de référence indiquée.
+              {prefilledBarcode
+                ? `Code-barres ${prefilledBarcode}, introuvable dans les sources connues.`
+                : 'Les valeurs portent sur la quantité de référence indiquée.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <FoodForm />
+            <FoodForm barcode={prefilledBarcode} />
             <Button
               type="button"
               variant="ghost"

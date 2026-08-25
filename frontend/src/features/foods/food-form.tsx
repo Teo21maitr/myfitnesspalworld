@@ -26,6 +26,12 @@ const optionalDecimal = z
 const foodSchema = z.object({
   name: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères.'),
   brand: z.string().trim(),
+  barcode: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || /^\d{8,24}$/.test(value), {
+      message: 'Un code-barres comporte entre 8 et 24 chiffres.',
+    }),
   reference_amount: z
     .string()
     .min(1, 'La quantité de référence est obligatoire.')
@@ -51,15 +57,23 @@ const UNIT_OPTIONS = [
   { value: 'unit', label: 'unité' },
 ]
 
-const FIELDS = ['name', 'brand', 'reference_amount', 'reference_unit', 'energy_kcal'] as const
+const FIELDS = [
+  'name',
+  'brand',
+  'barcode',
+  'reference_amount',
+  'reference_unit',
+  'energy_kcal',
+] as const
 
-function toDefaults(food?: FoodDetail): FoodValues {
+function toDefaults(food?: FoodDetail, barcode?: string): FoodValues {
   const round = (value: string | null | undefined) =>
     value === null || value === undefined ? '' : String(Math.round(Number(value) * 100) / 100)
 
   return {
     name: food?.name ?? '',
     brand: food?.brand ?? '',
+    barcode: food?.barcode ?? barcode ?? '',
     reference_amount: food ? String(Math.round(Number(food.reference_amount))) : '100',
     reference_unit: food?.reference_unit ?? 'g',
     energy_kcal: round(food?.nutrition?.energy_kcal),
@@ -75,8 +89,11 @@ function toDefaults(food?: FoodDetail): FoodValues {
  *
  * Un champ laissé vide reste inconnu : il est envoyé `null`, jamais 0
  * (spec 01 §8).
+ *
+ * `barcode` permet de prérenseigner le code d'un produit que le scan n'a pas
+ * trouvé, pour que l'utilisateur n'ait pas à le recopier (spec 01 §10).
  */
-export function FoodForm({ food }: { food?: FoodDetail }) {
+export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: string }) {
   const navigate = useNavigate()
   const create = useCreateFood()
   const update = useUpdateFood(food?.id ?? 0)
@@ -89,7 +106,7 @@ export function FoodForm({ food }: { food?: FoodDetail }) {
     formState: { errors, isSubmitting },
   } = useForm<FoodValues>({
     resolver: zodResolver(foodSchema),
-    defaultValues: toDefaults(food),
+    defaultValues: toDefaults(food, barcode),
   })
 
   const { formError, setFormError, handleApiError } = useApiFormErrors<FoodValues>(setError)
@@ -103,6 +120,7 @@ export function FoodForm({ food }: { food?: FoodDetail }) {
       .mutateAsync({
         name: values.name,
         brand: values.brand,
+        barcode: optional(values.barcode),
         reference_amount: values.reference_amount,
         reference_unit: values.reference_unit,
         nutrition: {
@@ -129,6 +147,11 @@ export function FoodForm({ food }: { food?: FoodDetail }) {
         label="Marque (facultatif)"
         registration={register('brand')}
         error={errors.brand}
+      />
+      <TextField
+        label="Code-barres (facultatif)"
+        registration={register('barcode')}
+        error={errors.barcode}
       />
 
       <div className="grid gap-4 sm:grid-cols-2">

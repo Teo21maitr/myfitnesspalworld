@@ -135,4 +135,25 @@ describe('Mes aliments', () => {
       expect(body.nutrition.protein_g).toBeNull()
     })
   })
+
+  it('préremplit le code-barres après un scan infructueux', async () => {
+    stubFetch([
+      { match: '/auth/me/', respond: () => jsonResponse(USER) },
+      {
+        match: '/profile/settings/',
+        respond: () =>
+          jsonResponse({ language: 'fr', theme_mode: 'system', date_format: 'DD/MM/YYYY' }),
+      },
+      {
+        match: '/foods/',
+        respond: () => jsonResponse({ count: 0, next: null, previous: null, results: [] }),
+      },
+    ])
+    renderRoute('/mes-aliments?creer=1&barcode=3017620422003')
+
+    // Le formulaire s'ouvre seul et le code est déjà là : l'utilisateur n'a
+    // pas à le recopier depuis l'emballage (spec 01 §10).
+    const barcode = await screen.findByLabelText('Code-barres (facultatif)')
+    expect(barcode).toHaveValue('3017620422003')
+  })
 })

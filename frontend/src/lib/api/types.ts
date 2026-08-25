@@ -226,3 +226,17 @@ export interface FoodDetail extends FoodListItem {
   created_at: string
   updated_at: string
 }
+
+/**
+ * Résultat de recherche Open Food Facts, avant tout enregistrement.
+ *
+ * Volontairement pauvre : la recherche élargie sert à choisir un produit. Ses
+ * valeurs nutritionnelles ne sont chargées qu'ensuite, par le code-barres.
+ */
+export interface ExternalFoodCandidate {
+  code: string
+  name: string
+  brand: string
+  /** Renseigné quand le produit est déjà en base : sa fiche s'ouvre directement. */
+  food_id: number | null
+}
