@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AddToDiaryForm } from '@/features/diary/add-to-diary-form'
 import { NutritionTable } from '@/features/foods/nutrition-table'
 import { PortionEditor } from '@/features/foods/portion-editor'
 import { useFood, useToggleFavorite } from '@/features/foods/use-foods'
@@ -75,6 +76,19 @@ export function FoodDetailPage() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Ajouter au journal</CardTitle>
+          <CardDescription>
+            Choisissez la quantité, le repas et la date. Seules les unités calculables pour cet
+            aliment sont proposées.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AddToDiaryForm food={food} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
