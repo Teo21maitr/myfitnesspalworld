@@ -3,7 +3,7 @@
 from django.urls import include, path
 
 from accounts.urls import account_patterns, auth_patterns, profile_patterns
-from diary.urls import diary_patterns, meal_type_patterns
+from diary.urls import dashboard_patterns, diary_patterns, meal_type_patterns
 from nutrition.urls import barcode_patterns, food_patterns, nutrition_profile_patterns
 from progress.urls import progress_patterns
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path("barcodes/", include((barcode_patterns, "barcodes"))),
     path("diary/", include((diary_patterns, "diary"))),
     path("meal-types/", include((meal_type_patterns, "meal-types"))),
+    path("dashboard/", include((dashboard_patterns, "dashboard"))),
     path("account/", include((account_patterns, "account"))),
     path("progress/", include((progress_patterns, "progress"))),
 ]

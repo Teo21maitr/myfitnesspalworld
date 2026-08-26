@@ -243,3 +243,98 @@ class DiaryDaySerializer(serializers.Serializer):
     incomplete_nutrients = serializers.ListField(child=serializers.CharField(), read_only=True)
     remaining = RemainingSerializer(read_only=True, allow_null=True)
     meals = MealSectionSerializer(many=True, read_only=True)
+
+
+class TargetDatesMixin(serializers.Serializer):
+    """Dates de destination d'une copie."""
+
+    target_dates = serializers.ListField(child=serializers.DateField(), allow_empty=False)
+
+
+class DuplicateEntrySerializer(serializers.Serializer):
+    """`POST /diary/entries/{id}/duplicate/` — même journée par défaut."""
+
+    date = serializers.DateField(required=False)
+    meal_type_id = serializers.IntegerField(required=False)
+
+    def validate_meal_type_id(self, value: int) -> int:
+        if not meal_types_for(self.context["request"].user).filter(pk=value).exists():
+            raise serializers.ValidationError("Ce repas n’existe pas.")
+        return value
+
+
+class CopyMealSerializer(TargetDatesMixin):
+    """`POST /diary/copy-meal/`."""
+
+    source_date = serializers.DateField()
+    source_meal_type_id = serializers.IntegerField()
+    target_meal_type_id = serializers.IntegerField(required=False)
+
+    def _own_meal(self, value: int) -> int:
+        if not meal_types_for(self.context["request"].user).filter(pk=value).exists():
+            raise serializers.ValidationError("Ce repas n’existe pas.")
+        return value
+
+    def validate_source_meal_type_id(self, value: int) -> int:
+        return self._own_meal(value)
+
+    def validate_target_meal_type_id(self, value: int) -> int:
+        return self._own_meal(value)
+
+
+class CopyDaySerializer(TargetDatesMixin):
+    """`POST /diary/copy-day/`."""
+
+    source_date = serializers.DateField()
+
+
+class BulkAddSerializer(TargetDatesMixin):
+    """`POST /diary/bulk-add/` — un même aliment sur plusieurs dates."""
+
+    food_id = serializers.IntegerField()
+    meal_type_id = serializers.IntegerField()
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3)
+    unit_label = serializers.CharField(max_length=40)
+
+    def validate_quantity(self, value: Decimal) -> Decimal:
+        if value <= 0:
+            raise serializers.ValidationError("La quantité doit être positive.")
+        return value
+
+    def validate_meal_type_id(self, value: int) -> int:
+        if not meal_types_for(self.context["request"].user).filter(pk=value).exists():
+            raise serializers.ValidationError("Ce repas n’existe pas.")
+        return value
+
+
+class WeightSummarySerializer(serializers.Serializer):
+    """Poids courant et chemin parcouru (spec 06 §5)."""
+
+    latest_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True, allow_null=True
+    )
+    latest_date = serializers.DateField(read_only=True, allow_null=True)
+    start_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True, allow_null=True
+    )
+    change_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True, allow_null=True
+    )
+    target_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True, allow_null=True
+    )
+    #: Part du chemin parcouru vers le poids cible, en pourcentage.
+    progress_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=1, read_only=True, allow_null=True
+    )
+
+
+class DashboardSerializer(DiaryDaySerializer):
+    """`GET /dashboard/` — la journée, plus le poids (spec 04 §16).
+
+    Le bloc « notifications importantes » de la spec est omis : le modèle
+    `Notification` n'existe pas encore. Mieux vaut son absence qu'un champ
+    simulé.
+    """
+
+    weight = WeightSummarySerializer(read_only=True, allow_null=True)
