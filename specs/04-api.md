@@ -124,6 +124,28 @@ POST   /diary/copy-meal/
 POST   /diary/bulk-add/
 ```
 
+`GET /diary/` renvoie la journée entière en un appel : objectifs applicables à
+la date — surcharge de jour de semaine comprise —, totaux consommés et
+restants, puis les repas avec leurs entrées et leurs sous-totaux. Chaque entrée
+porte un bloc `computed` calculé côté serveur : le frontend ne refait jamais la
+multiplication pour l'affichage définitif.
+
+`incomplete_nutrients` liste les nutriments dont au moins une entrée n'était pas
+renseignée. Le total correspondant reste affiché mais doit être présenté comme
+partiel : l'ignorer reviendrait à compter les inconnues pour zéro (spec 01 §8).
+
+`POST /diary/entries/` accepte un aliment — `food_id`, `quantity`, `unit_label`
+— ou un ajout rapide — `entry_type: "quick_add"` et au moins `energy_kcal`
+(spec 01 §12). L'aliment est résolu parmi ceux que l'appelant a le droit de
+voir, et l'unité doit figurer dans le champ `available_units` de sa fiche : une
+unité non calculable est refusée en 400 plutôt qu'approximée (spec 01 §9).
+
+Modifier l'unité d'une entrée exige que son aliment existe encore. S'il a
+disparu, seule la quantité reste modifiable : l'entrée conserve le facteur figé
+à l'ajout.
+
+Copie, duplication et ajout groupé restent à implémenter.
+
 Exemple `copy-day` :
 
 ```json
@@ -143,7 +165,12 @@ DELETE /meal-types/{id}/
 POST   /meal-types/reorder/
 ```
 
-DELETE d'un type système = désactivation.
+Les quatre repas par défaut sont créés par utilisateur à sa première visite,
+puis lui appartiennent : il peut les renommer, les réordonner et les
+désactiver sans affecter les autres comptes.
+
+DELETE d'un type système = désactivation. Un repas contenant déjà des
+entrées est désactivé lui aussi : l'historique prime.
 
 ## 6. Recipes
 

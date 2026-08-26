@@ -22,6 +22,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Objectifs nutritionnels](#objectifs-nutritionnels)
 - [Aliments](#aliments)
 - [Produits de marque et code-barres](#produits-de-marque-et-code-barres)
+- [Journal alimentaire](#journal-alimentaire)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -390,6 +391,68 @@ fiches importées ne sont jamais marquées « vérifiées ».
 
 > **Attribution.** Données issues d'Open Food Facts, sous licence ODbL. Une revue de licence
 > s'impose avant toute diffusion publique, la base étant combinée avec Ciqual.
+
+## Journal alimentaire
+
+Le journal est le point d'arrivée de tout le reste : c'est là qu'un aliment cherché, scanné ou
+créé devient une consommation.
+
+### Le snapshot porte les valeurs de référence
+
+Une entrée n'enregistre pas « 288 kcal consommées », mais les valeurs **pour la quantité de
+référence** de l'aliment — 100 g le plus souvent — accompagnées de la quantité et de l'unité :
+
+```text
+consommé = snapshot_energy_kcal × (quantité convertie ÷ snapshot_reference_amount)
+```
+
+Enregistrer directement le total rendrait impossible la modification ultérieure de la quantité :
+il faudrait retourner interroger l'aliment source, qui a pu changer ou disparaître. Avec les
+valeurs de référence, une entrée vieille de six mois se recalcule depuis elle seule.
+
+C'est ce qui réconcilie les deux exigences de la spec : le journal reste modifiable dans le passé
+(spec 01 §5) et une modification de la source ne touche jamais l'historique (spec 01 §6).
+
+Le facteur de l'unité est figé lui aussi. Sans cela, une portion supprimée rendrait l'entrée
+incalculable.
+
+### Toutes les unités ne sont pas calculables
+
+La spec 01 §9 interdit toute conversion millilitres ↔ grammes sans densité connue. Les unités
+proposables dépendent donc de l'unité de référence de l'aliment :
+
+| Référence | Unités acceptées |
+| --- | --- |
+| `g` | g, kg, portions ayant un équivalent en grammes |
+| `ml` | ml, cl, cuillère à café, cuillère à soupe, portions en millilitres |
+| `unit` | unité, portions ayant un équivalent en unités |
+
+Une cuillère est une mesure de volume : la proposer sur un aliment exprimé en grammes
+reviendrait à inventer une densité. L'API expose `available_units` sur chaque fiche, pour que
+l'interface ne propose jamais une unité que le backend refuserait.
+
+### Totaux partiels
+
+Un nutriment qu'aucune entrée ne renseigne reste inconnu. Quand certaines entrées le
+renseignent et d'autres non, le total est affiché mais **signalé comme partiel** : l'ignorer
+reviendrait à compter les inconnues pour zéro.
+
+### Repas
+
+Les quatre repas par défaut sont créés **par utilisateur**, à sa première visite. Chacun peut les
+renommer, les réordonner et les désactiver sans affecter les autres comptes. Supprimer un repas
+système, ou un repas contenant déjà des entrées, le désactive au lieu de l'effacer.
+
+### Suppression de compte
+
+Les clés du journal sont en cascade : supprimer un compte emporte ses journées, ses repas et ses
+entrées, quel que soit le chemin — API, admin Django ou shell.
+
+Une contrainte `PROTECT` sur le repas avait été essayée d'abord, pour interdire qu'un repas
+disparaisse sous ses entrées. Elle rendait toute suppression de compte impossible : le collecteur
+de Django rencontre la protection avant d'avoir supprimé quoi que ce soit. La garantie de ne pas
+perdre d'historique vit donc dans le service `meal_types.remove()`, qui désactive un repas déjà
+utilisé au lieu de le supprimer.
 
 ## Tests, lint et typecheck
 
