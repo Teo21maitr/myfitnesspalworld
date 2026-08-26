@@ -23,6 +23,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Aliments](#aliments)
 - [Produits de marque et code-barres](#produits-de-marque-et-code-barres)
 - [Journal alimentaire](#journal-alimentaire)
+- [Accueil et copie](#accueil-et-copie)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -453,6 +454,53 @@ disparaisse sous ses entrées. Elle rendait toute suppression de compte impossib
 de Django rencontre la protection avant d'avoir supprimé quoi que ce soit. La garantie de ne pas
 perdre d'historique vit donc dans le service `meal_types.remove()`, qui désactive un repas déjà
 utilisé au lieu de le supprimer.
+
+## Accueil et copie
+
+### Copier n'est pas figer
+
+Deux règles cohabitent, et les confondre donnerait des valeurs fausses sans que rien ne le
+signale.
+
+**Modifier** une entrée corrige une consommation passée : son snapshot fait foi, et l'aliment
+source peut avoir changé depuis, cela ne la touche pas.
+
+**Dupliquer** une entrée déclare une nouvelle consommation : elle repart des **valeurs actuelles**
+de l'aliment (spec 01 §5). L'implémentation naïve — recopier la ligne en base — porterait des
+valeurs périmées.
+
+Quand l'aliment a disparu ou n'est plus visible, la copie retombe sur le snapshot stocké. Refuser
+ferait échouer la copie d'une journée entière à cause d'un seul produit supprimé.
+
+Les horaires sont conservés, seule la date change. Une copie **s'ajoute** : la journée cible garde
+ce qu'elle contenait déjà.
+
+### Ce qui se copie
+
+| Action | Portée |
+| --- | --- |
+| Dupliquer | une entrée, dans la même journée ou ailleurs |
+| Copier ce repas | un repas vers une ou plusieurs dates, éventuellement vers un autre repas |
+| Copier la journée | toutes les entrées, chacune retrouvant son repas |
+| Ajouter sur plusieurs dates | un même aliment, une même quantité |
+
+Le déplacement entre repas passe par un menu et non par un glisser-déposer : la spec 06 §6 exige
+qu'un geste ne soit jamais l'unique moyen d'agir, et un menu reste utilisable au clavier comme au
+lecteur d'écran.
+
+### Tableau de bord
+
+`GET /dashboard/?date=` renvoie la même journée que `GET /diary/`, enrichie du poids. Les deux
+passent par le même service : ils ne peuvent pas afficher deux totaux différents pour une même
+date.
+
+Le jeu de widgets est fixe — calories, macros, repas, poids, raccourcis. `dashboard_config` existe
+en base si la personnalisation vient plus tard. Le bloc « notifications importantes » de la
+spec 04 §16 n'est pas renvoyé : le modèle `Notification` n'existe pas encore, et une absence vaut
+mieux qu'un champ simulé.
+
+Chaque widget reste juste quand la donnée manque : pas d'objectif, aucune pesée, aucun poids
+cible. Ce sont les cas d'un compte neuf, pas des cas rares.
 
 ## Tests, lint et typecheck
 

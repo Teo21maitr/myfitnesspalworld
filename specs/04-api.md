@@ -144,7 +144,14 @@ Modifier l'unité d'une entrée exige que son aliment existe encore. S'il a
 disparu, seule la quantité reste modifiable : l'entrée conserve le facteur figé
 à l'ajout.
 
-Copie, duplication et ajout groupé restent à implémenter.
+`POST /diary/entries/{id}/duplicate/`, `copy-meal`, `copy-day` et `bulk-add`
+partagent une règle : **une copie repart de la version actuelle de l'aliment**,
+alors que l'entrée d'origine garde son snapshot (spec 01 §5). Quand l'aliment a
+disparu ou n'est plus visible, le snapshot stocké est recopié : refuser ferait
+échouer la copie d'une journée entière pour un seul produit supprimé.
+
+Les horaires sont conservés, seule la date change. Une copie **s'ajoute** : la
+journée cible garde ce qu'elle contenait.
 
 Exemple `copy-day` :
 
@@ -353,16 +360,16 @@ Les métadonnées peuvent être patchées.
 GET /dashboard/?date=YYYY-MM-DD
 ```
 
-Réponse agrégée :
+Renvoie la même journée que `GET /diary/` — objectifs, totaux, restants et
+repas — enrichie du poids : dernière pesée, écart depuis la première, poids
+cible et part du chemin parcouru.
 
-- objectifs ;
-- calories consommées/restantes ;
-- macros ;
-- repas ;
-- poids récent ;
-- progression ;
-- config widgets ;
-- notifications importantes.
+Les deux endpoints passent par le même service : ils ne peuvent pas afficher
+deux totaux différents pour une même date.
+
+La configuration des widgets et les notifications importantes prévues par la
+spec ne sont pas encore renvoyées : le jeu de widgets est fixe et le modèle
+`Notification` n'existe pas.
 
 ## 17. Reports
 
