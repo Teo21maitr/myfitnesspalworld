@@ -1,6 +1,7 @@
 """Format d'erreur normalisé de l'API (spec 10 §5)."""
 
 import pytest
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
@@ -84,3 +85,24 @@ def test_erreur_dauthentification_respecte_le_format(client):
     response = client.get("/api/v1/inexistant/")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_une_validation_error_de_service_devient_un_400():
+    """Les services métier lèvent la `ValidationError` de Django.
+
+    Sans traduction, DRF ne la reconnaîtrait pas et une règle métier violée
+    produirait un 500 au lieu d'un 400 — c'est ce qui arrivait à une unité de
+    saisie non convertible.
+    """
+    response = _call(DjangoValidationError({"unit_label": ["Unité incalculable."]}))
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["code"] == "validation_error"
+    assert response.data["errors"]["unit_label"] == ["Unité incalculable."]
+
+
+def test_une_validation_error_sans_champ_reste_lisible():
+    response = _call(DjangoValidationError("Règle métier violée."))
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Règle métier violée." in response.data["errors"]["non_field_errors"]

@@ -8,6 +8,7 @@ Toute erreur gérée renvoie :
 import logging
 from typing import Any
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
@@ -48,6 +49,12 @@ def _normalize_errors(detail: Any) -> dict[str, list[str]]:
 
 def api_exception_handler(exc: Exception, context: dict) -> Response | None:
     """Handler d'exception DRF renvoyant le format d'erreur du projet."""
+    # Les services métier lèvent la `ValidationError` de Django, qui est leur
+    # exception idiomatique. Sans cette conversion, DRF ne la reconnaîtrait pas
+    # et une règle métier violée produirait un 500 au lieu d'un 400.
+    if isinstance(exc, DjangoValidationError):
+        exc = ValidationError(getattr(exc, "message_dict", None) or exc.messages)
+
     response = drf_exception_handler(exc, context)
 
     if response is None:
