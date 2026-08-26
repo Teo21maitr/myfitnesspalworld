@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 
-import { NAV_ITEMS } from './navigation'
+import { SIDEBAR_NAV_ITEMS } from './navigation'
 
 /** Barre latérale desktop (spec 06 §3). */
 export function Sidebar() {
@@ -10,7 +10,7 @@ export function Sidebar() {
     <aside className="hidden w-60 shrink-0 border-r md:block">
       <nav aria-label="Navigation principale" className="sticky top-0 p-4">
         <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map(({ to, label, Icon }) => (
+          {SIDEBAR_NAV_ITEMS.map(({ to, label, Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
