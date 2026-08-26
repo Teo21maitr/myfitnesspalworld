@@ -12,6 +12,7 @@ import { AccountPage } from '@/pages/account-page'
 import { EditFoodPage } from '@/pages/foods/edit-food-page'
 import { FoodDetailPage } from '@/pages/foods/food-detail-page'
 import { FoodSearchPage } from '@/pages/foods/food-search-page'
+import { QuickAddPage } from '@/pages/diary/quick-add-page'
 import { LazyScannerPage } from '@/pages/foods/lazy-scanner-page'
 import { MyFoodsPage } from '@/pages/foods/my-foods-page'
 import { GoalsPage } from '@/pages/goals-page'
@@ -77,6 +78,7 @@ export const routes = [
       { path: 'mes-aliments', element: <MyFoodsPage /> },
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
+      { path: 'ajout-rapide', element: <QuickAddPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
       { path: 'compte', element: <AccountPage /> },
       { path: '*', element: <NotFoundPage /> },
