@@ -3,10 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { foodsQueryKey } from '@/features/foods/api'
 
 import {
+  bulkAdd,
+  copyDay,
+  copyMeal,
   createEntry,
+  dashboardQueryKey,
   deleteEntry,
   diaryDayQueryKey,
+  duplicateEntry,
   diaryQueryKey,
+  fetchDashboard,
   fetchDiaryDay,
   fetchMealTypes,
   mealTypesQueryKey,
@@ -62,4 +68,33 @@ export function useDeleteEntry() {
   const invalidate = useDiaryInvalidation()
 
   return useMutation({ mutationFn: deleteEntry, onSuccess: invalidate })
+}
+
+export function useDashboard(date: string) {
+  return useQuery({ queryKey: dashboardQueryKey(date), queryFn: () => fetchDashboard(date) })
+}
+
+export function useDuplicateEntry() {
+  const invalidate = useDiaryInvalidation()
+
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number; date?: string; meal_type_id?: number }) =>
+      duplicateEntry(id, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCopyMeal() {
+  const invalidate = useDiaryInvalidation()
+  return useMutation({ mutationFn: copyMeal, onSuccess: invalidate })
+}
+
+export function useCopyDay() {
+  const invalidate = useDiaryInvalidation()
+  return useMutation({ mutationFn: copyDay, onSuccess: invalidate })
+}
+
+export function useBulkAdd() {
+  const invalidate = useDiaryInvalidation()
+  return useMutation({ mutationFn: bulkAdd, onSuccess: invalidate })
 }

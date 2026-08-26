@@ -340,3 +340,24 @@ export interface DiaryDay {
   remaining: DiaryRemaining | null
   meals: MealSection[]
 }
+
+/** Poids courant et chemin parcouru (spec 06 §5). */
+export interface WeightSummary {
+  latest_kg: string | null
+  latest_date: string | null
+  start_kg: string | null
+  change_kg: string | null
+  target_kg: string | null
+  /** Part du chemin parcouru vers le poids cible, en pourcentage. */
+  progress_percent: string | null
+}
+
+/**
+ * Tableau de bord : la journée, plus le poids (spec 04 §16).
+ *
+ * Le bloc « notifications importantes » de la spec est absent tant que le
+ * modèle correspondant n'existe pas côté serveur.
+ */
+export interface Dashboard extends DiaryDay {
+  weight: WeightSummary
+}
