@@ -9,16 +9,13 @@ import {
 } from './helpers'
 
 /**
- * Parcours journal (spec 01 §5, spec 08 §5) :
+ * Parcours accueil et copie (spec 01 §5 et §23, spec 08 §5) :
  *
- *   rechercher → ajouter au journal → vérifier le total → modifier → supprimer
- *
- * Le parcours vérifie aussi que l'aliment consommé rejoint bien les « récents » :
- * c'est l'effet de bord qui donne enfin de la matière au classement de la
- * recherche.
+ *   journaliser → voir le bilan sur l'accueil → copier la journée vers demain
+ *   → déplacer une entrée d'un repas à l'autre
  */
 
-const USERNAME = 'e2e-journal'
+const USERNAME = 'e2e-accueil'
 const PASSWORD = 'un-mot-de-passe-e2e-1'
 
 test.beforeAll(() => {
@@ -34,7 +31,7 @@ test.afterAll(() => {
   cleanupUser(USERNAME)
 })
 
-test('ajout au journal, modification et suppression', async ({ page }) => {
+test('tableau de bord, copie de journée et déplacement', async ({ page }) => {
   await test.step('création du compte et onboarding', async () => {
     await signUp(page, USERNAME, PASSWORD)
     acceptRegistrationRequest(USERNAME)
@@ -57,66 +54,59 @@ test('ajout au journal, modification et suppression', async ({ page }) => {
       await page.getByRole('button', { name: 'Continuer' }).click()
     }
     await page.getByRole('button', { name: 'Terminer' }).click()
-    await expect(page).toHaveURL(/\/$/)
+    await page.waitForURL((url) => !url.pathname.includes('onboarding'))
   })
 
-  await test.step('le journal démarre avec les quatre repas', async () => {
-    await page.goto('/journal')
-    await expect(page.getByRole('heading', { name: 'Journal' })).toBeVisible()
+  await test.step('l’accueil affiche le bilan du jour', async () => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Aujourd’hui' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Calories' })).toBeVisible()
 
-    for (const meal of ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collations']) {
-      await expect(page.getByRole('heading', { name: meal, exact: true })).toBeVisible()
-    }
+    // L'onboarding a enregistré une pesée : le widget poids n'est pas vide.
+    await expect(page.getByRole('heading', { name: 'Poids' })).toBeVisible()
   })
 
-  await test.step('un aliment est ajouté depuis sa fiche', async () => {
+  await test.step('un aliment journalisé apparaît dans le bilan', async () => {
     await page.goto('/aliments')
     await page.getByLabel('Rechercher un aliment').fill('abricot')
     await page
       .getByRole('link', { name: /Abricot/ })
       .first()
       .click()
-
-    await expect(page.getByRole('heading', { name: 'Ajouter au journal' })).toBeVisible()
     await page.getByLabel('Quantité').fill('200')
     await page.getByRole('button', { name: 'Ajouter au journal' }).click()
-
     await expect(page).toHaveURL(/\/journal/)
+
+    await page.goto('/')
+    const calories = page
+      .locator('[data-slot="card"]')
+      .filter({ has: page.getByRole('heading', { name: 'Calories' }) })
+    await expect(calories.getByText(/restantes/)).toBeVisible()
   })
 
-  await test.step('l’entrée apparaît et compte dans le total', async () => {
-    const summary = page.getByRole('heading', { name: 'Bilan du jour' })
-    await expect(summary).toBeVisible()
-    // L'entrée est listée sous son repas.
-    await expect(page.getByRole('link', { name: /Abricot/ }).first()).toBeVisible()
-  })
-
-  await test.step('la quantité se modifie depuis le journal', async () => {
-    await page
-      .getByRole('button', { name: /^Modifier / })
-      .first()
-      .click()
-    const field = page.getByLabel(/^Quantité de /).first()
-    await field.fill('300')
-    await page.getByRole('button', { name: 'Valider' }).click()
-
-    await expect(page.getByText('300 g')).toBeVisible()
-  })
-
-  await test.step('l’aliment consommé rejoint les récents', async () => {
-    await page.goto('/aliments')
-    await page.getByRole('tab', { name: 'Récents' }).click()
-
-    await expect(page.getByRole('link', { name: /Abricot/ }).first()).toBeVisible()
-  })
-
-  await test.step('l’entrée se supprime', async () => {
+  await test.step('la journée se copie vers demain', async () => {
     await page.goto('/journal')
+    await page.getByRole('button', { name: /Copier la journée/ }).click()
+
+    const panel = page.locator('[data-slot="card"]').filter({ hasText: 'Copier cette journée' })
+    await panel.getByRole('button', { name: 'Ajouter', exact: true }).click()
+    await panel.getByRole('button', { name: 'Copier', exact: true }).click()
+
+    // Le lendemain porte désormais la même entrée.
+    await page.getByRole('button', { name: 'Jour suivant' }).click()
+    await expect(page.getByRole('link', { name: /Abricot/ }).first()).toBeVisible()
+  })
+
+  await test.step('une entrée se déplace vers un autre repas', async () => {
     await page
-      .getByRole('button', { name: /^Supprimer / })
+      .getByRole('button', { name: /^Déplacer / })
       .first()
       .click()
+    await page.getByRole('button', { name: 'Dîner', exact: true }).click()
 
-    await expect(page.getByText('Rien pour l’instant.').first()).toBeVisible()
+    const dinner = page
+      .locator('[data-slot="card"]')
+      .filter({ has: page.getByRole('heading', { name: 'Dîner', exact: true }) })
+    await expect(dinner.getByRole('link', { name: /Abricot/ })).toBeVisible()
   })
 })

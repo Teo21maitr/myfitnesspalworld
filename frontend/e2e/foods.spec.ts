@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-import { acceptRegistrationRequest, cleanupUser, importCiqualSample, signUp } from './helpers'
+import {
+  acceptRegistrationRequest,
+  cleanupUser,
+  importCiqualSample,
+  signUp,
+  resetThrottleCounters,
+} from './helpers'
 
 /**
  * Parcours aliments (spec 08 §5) :
@@ -12,6 +18,10 @@ const USERNAME = 'e2e-aliments'
 const PASSWORD = 'un-mot-de-passe-e2e-1'
 
 test.beforeAll(() => {
+  // Le quota de connexion est volontairement serré (10/min). Chaque
+  // parcours crée un compte et s'y connecte : à cinq parcours, le compteur
+  // déborde. On le remet à zéro plutôt que d'affaiblir la protection.
+  resetThrottleCounters()
   cleanupUser(USERNAME)
   importCiqualSample()
 })

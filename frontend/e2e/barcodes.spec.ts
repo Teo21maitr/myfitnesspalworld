@@ -6,6 +6,7 @@ import {
   cleanupUser,
   seedCachedOffProduct,
   signUp,
+  resetThrottleCounters,
 } from './helpers'
 
 /**
@@ -25,6 +26,10 @@ const KNOWN_BARCODE = '3017620422003'
 const UNKNOWN_BARCODE = '9999999999999'
 
 test.beforeAll(() => {
+  // Le quota de connexion est volontairement serré (10/min). Chaque
+  // parcours crée un compte et s'y connecte : à cinq parcours, le compteur
+  // déborde. On le remet à zéro plutôt que d'affaiblir la protection.
+  resetThrottleCounters()
   cleanupUser(USERNAME)
   cleanupOffProducts()
   seedCachedOffProduct()
