@@ -97,10 +97,12 @@ test('recherche, consultation et création d’aliments', async ({ page }) => {
   await test.step('les champs laissés vides restent inconnus', async () => {
     // Un champ non renseigné s'affiche « — » et n'est jamais ramené à zéro
     // (spec 01 §8) : la règle est vérifiée de bout en bout.
-    const glucides = page.getByRole('term').filter({ hasText: /^Glucides$/ })
-    await expect(glucides).toBeVisible()
+    // Le formulaire d'ajout au journal affiche un aperçu des mêmes macros :
+    // on cible la section des macronutriments pour rester sans ambiguïté.
+    const macros = page.locator('section').filter({ hasText: 'Macronutriments' })
+    await expect(macros.getByRole('term').filter({ hasText: /^Glucides$/ })).toBeVisible()
 
-    await expect(page.getByRole('definition').nth(2)).toHaveText('—')
+    await expect(macros.getByRole('definition').nth(2)).toHaveText('—')
   })
 
   await test.step('l’aliment personnel est retrouvé par la recherche', async () => {
