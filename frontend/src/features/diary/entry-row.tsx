@@ -1,4 +1,4 @@
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { ArrowRightLeft, Check, CopyPlus, Pencil, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { NutrientValue } from '@/features/foods/nutrient-value'
 import type { DiaryEntry } from '@/lib/api/types'
 
-import { useDeleteEntry, useUpdateEntry } from './use-diary'
+import { useDeleteEntry, useDuplicateEntry, useMealTypes, useUpdateEntry } from './use-diary'
 
 /** Quantité affichée sans décimales inutiles : « 150 g » plutôt que « 150,000 g ». */
 function formatQuantity(quantity: string): string {
@@ -23,9 +23,16 @@ function formatQuantity(quantity: string): string {
  */
 export function EntryRow({ entry }: { entry: DiaryEntry }) {
   const [editing, setEditing] = useState(false)
+  const [moving, setMoving] = useState(false)
   const [quantity, setQuantity] = useState(formatQuantity(entry.quantity))
   const update = useUpdateEntry()
   const remove = useDeleteEntry()
+  const duplicate = useDuplicateEntry()
+  const mealTypes = useMealTypes()
+
+  const meals = (Array.isArray(mealTypes.data) ? mealTypes.data : []).filter(
+    (meal) => meal.is_active && meal.id !== entry.meal_type_id,
+  )
 
   const save = () => {
     const value = Number(quantity.replace(',', '.'))
@@ -57,6 +64,34 @@ export function EntryRow({ entry }: { entry: DiaryEntry }) {
             <span className="text-muted-foreground truncate text-xs">{entry.snapshot_brand}</span>
           )}
         </p>
+
+        {moving && !editing && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span className="text-muted-foreground text-xs">Déplacer vers :</span>
+            {meals.map((meal) => (
+              <Button
+                key={meal.id}
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7"
+                onClick={() =>
+                  update.mutate(
+                    { id: entry.id, meal_type_id: meal.id },
+                    {
+                      onSuccess: () => {
+                        toast.success(`Déplacé vers ${meal.name}.`)
+                        setMoving(false)
+                      },
+                    },
+                  )
+                }
+              >
+                {meal.name}
+              </Button>
+            ))}
+          </div>
+        )}
 
         {editing ? (
           <div className="mt-1 flex items-center gap-2">
@@ -104,6 +139,33 @@ export function EntryRow({ entry }: { entry: DiaryEntry }) {
           >
             <Pencil aria-hidden="true" className="size-4" />
           </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            disabled={duplicate.isPending}
+            onClick={() =>
+              duplicate.mutate(
+                { id: entry.id },
+                { onSuccess: () => toast.success('Entrée dupliquée.') },
+              )
+            }
+            aria-label={`Dupliquer ${entry.snapshot_name}`}
+          >
+            <CopyPlus aria-hidden="true" className="size-4" />
+          </Button>
+          {meals.length > 0 && (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setMoving((value) => !value)}
+              aria-label={`Déplacer ${entry.snapshot_name}`}
+              aria-expanded={moving}
+            >
+              <ArrowRightLeft aria-hidden="true" className="size-4" />
+            </Button>
+          )}
           <Button
             type="button"
             size="icon"

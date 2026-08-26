@@ -1,12 +1,14 @@
-import { ChevronLeft, ChevronRight, TriangleAlert, Zap } from 'lucide-react'
+import { CalendarPlus, ChevronLeft, ChevronRight, TriangleAlert, Zap } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { formatDate, shift, today } from '@/features/diary/dates'
+import { CopyDialog } from '@/features/diary/copy-dialog'
 import { MealCard } from '@/features/diary/meal-card'
-import { useDiaryDay } from '@/features/diary/use-diary'
+import { useCopyDay, useDiaryDay } from '@/features/diary/use-diary'
 import { NutrientValue } from '@/features/foods/nutrient-value'
 import type { DiaryDay } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
@@ -67,6 +69,10 @@ export function JournalPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const date = searchParams.get('date') ?? today()
   const { data: day, error, isPending } = useDiaryDay(date)
+  const [copying, setCopying] = useState(false)
+  const copy = useCopyDay()
+
+  const hasEntries = (day?.meals ?? []).some((section) => section.entries.length > 0)
 
   const goTo = (next: string) => setSearchParams({ date: next }, { replace: true })
 
@@ -79,12 +85,26 @@ export function JournalPage() {
             {formatDate(date)}
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/ajout-rapide?date=${date}`}>
-            <Zap aria-hidden="true" className="size-4" />
-            Ajout rapide
-          </Link>
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {hasEntries && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={copying}
+              onClick={() => setCopying((value) => !value)}
+            >
+              <CalendarPlus aria-hidden="true" className="size-4" />
+              Copier la journée
+            </Button>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/ajout-rapide?date=${date}`}>
+              <Zap aria-hidden="true" className="size-4" />
+              Ajout rapide
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -136,6 +156,17 @@ export function JournalPage() {
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {describeError(error)}
         </p>
+      )}
+
+      {copying && (
+        <CopyDialog
+          title="Copier cette journée"
+          description="Chaque entrée retrouve son repas. Les journées cibles gardent ce qu'elles contiennent déjà."
+          isPending={copy.isPending}
+          error={copy.error}
+          onClose={() => setCopying(false)}
+          onCopy={(dates) => copy.mutateAsync({ source_date: date, target_dates: dates })}
+        />
       )}
 
       {day && (
