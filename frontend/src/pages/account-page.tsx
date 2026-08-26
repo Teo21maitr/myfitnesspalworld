@@ -3,6 +3,7 @@ import { DeleteAccountSection } from '@/features/account/delete-account-section'
 import { ProfileForm } from '@/features/account/profile-form'
 import { SessionSection } from '@/features/account/session-section'
 import { useMe } from '@/features/auth/use-auth'
+import { HealthCard } from '@/features/health/health-card'
 
 export function AccountPage() {
   const { data: user } = useMe()
@@ -23,6 +24,9 @@ export function AccountPage() {
       <ProfileForm user={user} />
       <ChangePasswordForm />
       <SessionSection />
+      {/* Diagnostic technique : il a quitté l'accueil, devenu le tableau de
+          bord, mais reste utile pour savoir si le serveur répond. */}
+      <HealthCard />
       <DeleteAccountSection user={user} />
     </div>
   )
