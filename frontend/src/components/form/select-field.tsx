@@ -12,7 +12,8 @@ export interface SelectOption {
 interface SelectFieldProps extends Omit<React.ComponentProps<'select'>, 'id' | 'children'> {
   label: string
   options: readonly SelectOption[]
-  registration: UseFormRegisterReturn
+  /** Facultatif : le champ s'utilise aussi en composant contrôlé. */
+  registration?: UseFormRegisterReturn
   error?: FieldError
   hint?: string
   placeholder?: string

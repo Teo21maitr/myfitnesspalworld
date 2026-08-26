@@ -222,6 +222,8 @@ export interface FoodDetail extends FoodListItem {
   default_unit_type: UnitType
   nutrition: FoodNutrition | null
   portions: FoodPortion[]
+  /** Unités réellement calculables pour cet aliment (spec 01 §9). */
+  available_units: string[]
   is_editable: boolean
   created_at: string
   updated_at: string
@@ -239,4 +241,102 @@ export interface ExternalFoodCandidate {
   brand: string
   /** Renseigné quand le produit est déjà en base : sa fiche s'ouvre directement. */
   food_id: number | null
+}
+
+/** Repas d'une journée (spec 01 §5). */
+export interface MealType {
+  id: number
+  name: string
+  slug: string
+  sort_order: number
+  is_active: boolean
+  /** Un repas système se désactive, il ne se supprime pas. */
+  is_system: boolean
+  system_key: string | null
+}
+
+/**
+ * Valeurs nutritionnelles, en chaînes décimales.
+ *
+ * `null` signifie « inconnu » et jamais zéro (spec 01 §8).
+ */
+export interface NutritionValues {
+  energy_kcal: string | null
+  protein_g: string | null
+  carbohydrates_g: string | null
+  fat_g: string | null
+  fiber_g: string | null
+  sugars_g: string | null
+  sodium_mg: string | null
+  salt_g: string | null
+  cholesterol_mg: string | null
+  potassium_mg: string | null
+  calcium_mg: string | null
+  iron_mg: string | null
+  magnesium_mg: string | null
+  vitamin_a_ug: string | null
+  vitamin_b6_mg: string | null
+  vitamin_b12_ug: string | null
+  vitamin_c_mg: string | null
+  vitamin_d_ug: string | null
+  vitamin_e_mg: string | null
+  vitamin_k_ug: string | null
+}
+
+export type EntryType = 'food' | 'recipe' | 'quick_add'
+
+/** Entrée de journal, avec ses valeurs réellement consommées. */
+export interface DiaryEntry {
+  id: number
+  meal_type_id: number
+  entry_type: EntryType
+  consumed_at: string
+  quantity: string
+  unit_label: string
+  note: string
+  food: number | null
+  snapshot_name: string
+  snapshot_brand: string
+  snapshot_source: string
+  snapshot_reference_amount: string
+  snapshot_reference_unit: UnitType
+  /** Calculé côté serveur : le frontend ne refait jamais la multiplication. */
+  computed: NutritionValues
+}
+
+export interface MealSection {
+  meal_type: MealType
+  entries: DiaryEntry[]
+  totals: NutritionValues
+  incomplete_nutrients: string[]
+}
+
+export interface DiaryGoals {
+  date: string
+  weekday: number
+  daily_calories: string
+  protein_g: string
+  carbs_g: string
+  fat_g: string
+  fiber_g: string | null
+}
+
+export interface DiaryRemaining {
+  daily_calories: string | null
+  protein_g: string | null
+  carbs_g: string | null
+  fat_g: string | null
+  fiber_g: string | null
+}
+
+/** Journée complète, renvoyée en un appel (spec 04 §4). */
+export interface DiaryDay {
+  date: string
+  notes: string
+  goals: DiaryGoals | null
+  totals: NutritionValues
+  /** Nutriments dont au moins une entrée n'était pas renseignée. */
+  incomplete_nutrients: string[]
+  remaining: DiaryRemaining | null
+  meals: MealSection[]
 }

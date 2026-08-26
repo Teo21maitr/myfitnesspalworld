@@ -35,6 +35,7 @@ const FOOD = {
   default_unit_type: 'g',
   nutrition: null,
   portions: [],
+  available_units: ['g', 'kg'],
   is_editable: false,
   created_at: '2026-08-25T10:00:00Z',
   updated_at: '2026-08-25T10:00:00Z',

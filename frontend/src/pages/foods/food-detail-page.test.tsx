@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -59,6 +59,7 @@ function detail(overrides: Partial<FoodDetail> = {}): FoodDetail {
     default_unit_type: 'g',
     nutrition: NUTRITION,
     portions: [],
+    available_units: ['g', 'kg'],
     is_editable: false,
     created_at: '2026-08-01T10:00:00+02:00',
     updated_at: '2026-08-01T10:00:00+02:00',
@@ -74,6 +75,21 @@ function stubDetail(food: FoodDetail = detail(), onWrite?: (url: string) => void
         match: '/profile/settings/',
         respond: () =>
           jsonResponse({ language: 'fr', theme_mode: 'system', date_format: 'DD/MM/YYYY' }),
+      },
+      {
+        match: '/meal-types/',
+        respond: () =>
+          jsonResponse([
+            {
+              id: 1,
+              name: 'Petit-déjeuner',
+              slug: 'petit-dejeuner',
+              sort_order: 0,
+              is_active: true,
+              is_system: true,
+              system_key: 'breakfast',
+            },
+          ]),
       },
       { match: '/foods/7/portions/', respond: () => jsonResponse({ id: 1 }, 201) },
       { match: '/foods/7/favorite/', respond: () => new Response(null, { status: 204 }) },
@@ -104,7 +120,10 @@ describe('Fiche aliment', () => {
       await screen.findByRole('heading', { name: 'Abricot, dénoyauté, cru' }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Source : Ciqual/)).toBeInTheDocument()
-    expect(screen.getByText('45,9')).toBeInTheDocument()
+    // L'aperçu du formulaire d'ajout affiche la même valeur : on cible la
+    // section des macronutriments pour rester précis.
+    const macros = screen.getByRole('heading', { name: 'Macronutriments' }).closest('section')
+    expect(within(macros as HTMLElement).getByText('45,9')).toBeInTheDocument()
   })
 
   it('affiche « — » pour les valeurs inconnues et jamais 0', async () => {
