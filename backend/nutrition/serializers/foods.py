@@ -14,6 +14,7 @@ from nutrition.models import (
     FoodVisibility,
     UnitType,
 )
+from nutrition.services.quantities import available_units as food_available_units
 
 NUTRITION_FIELDS = (
     "energy_kcal",
@@ -136,6 +137,7 @@ class FoodDetailSerializer(FoodListSerializer):
     nutrition = FoodNutritionSerializer(read_only=True)
     portions = serializers.SerializerMethodField()
     is_editable = serializers.SerializerMethodField()
+    available_units = serializers.SerializerMethodField()
 
     class Meta(FoodListSerializer.Meta):
         fields = (
@@ -145,6 +147,7 @@ class FoodDetailSerializer(FoodListSerializer):
             "default_unit_type",
             "nutrition",
             "portions",
+            "available_units",
             "is_editable",
             "created_at",
             "updated_at",
@@ -161,6 +164,14 @@ class FoodDetailSerializer(FoodListSerializer):
             if portion.owner_id is None or portion.owner_id == user_id
         ]
         return FoodPortionSerializer(portions, many=True, context=self.context).data
+
+    def get_available_units(self, obj: Food) -> list[str]:
+        """Unités réellement calculables pour cet aliment (spec 01 §9).
+
+        Exposées afin que le formulaire d'ajout au journal n'en propose jamais
+        une que le backend refuserait, faute de densité connue.
+        """
+        return food_available_units(obj)
 
     def get_is_editable(self, obj: Food) -> bool:
         request = self.context.get("request")
