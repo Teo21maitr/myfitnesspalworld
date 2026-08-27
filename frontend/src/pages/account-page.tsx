@@ -1,4 +1,4 @@
-import { Target, TrendingUp } from 'lucide-react'
+import { Share2, Target, TrendingUp, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,18 @@ export function AccountPage() {
           <Link to="/progression">
             <TrendingUp aria-hidden="true" className="size-4" />
             Progression
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/amis">
+            <Users aria-hidden="true" className="size-4" />
+            Amis
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/partages">
+            <Share2 aria-hidden="true" className="size-4" />
+            Partages
           </Link>
         </Button>
       </div>
