@@ -3,6 +3,7 @@
 from django.urls import include, path
 
 from accounts.urls import account_patterns, auth_patterns, profile_patterns
+from ai.urls import ai_patterns
 from diary.urls import dashboard_patterns, diary_patterns, meal_type_patterns
 from nutrition.urls import barcode_patterns, food_patterns, nutrition_profile_patterns
 from planning.urls import shopping_list_patterns
@@ -42,6 +43,7 @@ urlpatterns = [
     path("friend-requests/", include((friend_request_patterns, "friend-requests"))),
     path("shares/", include((share_patterns, "shares"))),
     path("shared/", include((shared_patterns, "shared"))),
+    path("ai/", include((ai_patterns, "ai"))),
     # Suivi générique des traitements longs : l'IA aujourd'hui, les
     # rapports lourds demain (spec 04 §9).
     path("tasks/<uuid:pk>/", AsyncTaskDetailView.as_view(), name="task-detail"),
