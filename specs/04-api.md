@@ -273,10 +273,13 @@ Réponse type :
 
 ```json
 {
+  "id": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+  "task_type": "meal_scan",
   "status": "pending",
   "progress": 20,
   "result": null,
-  "error": null
+  "error": null,
+  "created_at": "2026-08-27T12:00:00Z"
 }
 ```
 
@@ -287,18 +290,52 @@ Statuts :
 - success
 - failed
 
+Une tâche **appartient à quelqu'un**. Le backend de résultats de Celery n'a pas
+cette notion : un identifiant deviné y donnerait accès au résultat d'autrui.
+D'où une table applicative, un identifiant UUID, et un filtrage par
+propriétaire. La tâche d'un autre compte répond **404** et non 403.
+
+Le résultat expire au bout d'un jour : passé ce délai la tâche répond 404, et
+une tâche planifiée la supprime.
+
+`error` porte un message destiné à l'utilisateur, jamais une trace technique.
+
 ## 10. IA
 
 ```text
 POST /ai/meal-scan/
-POST /ai/voice-log/
 ```
 
-Les endpoints IA créent une tâche et retournent des suggestions.
+`POST /ai/voice-log/` n'existe pas encore : la saisie vocale viendra sur le même
+socle.
 
-Ils ne créent pas directement des entrées de journal.
+Les endpoints IA **créent une tâche et rendent des suggestions**. Ils ne créent
+jamais d'entrée de journal : le frontend confirme ensuite via
+`/diary/entries/`, qui sait déjà résoudre l'aliment, vérifier l'unité et figer
+le snapshot.
 
-Le frontend confirme ensuite via `/diary/entries/`.
+`meal-scan` reçoit de une à trois images en multipart, sous le champ `images`,
+chacune en JPEG, PNG ou WebP et dans la limite de `MAX_UPLOAD_SIZE_MB`. Le type
+déclaré ne suffit pas : les premiers octets sont vérifiés (spec 05 §14). Il
+répond **202** avec la tâche.
+
+Les images ne sont jamais écrites sur disque. Elles transitent par le cache sous
+une clé non devinable, et sont supprimées dès l'analyse terminée — y compris
+lorsqu'elle échoue (spec 07 §5).
+
+Une suggestion porte le libellé et la quantité proposés par le modèle, sa
+confiance, et des **candidats issus de la base** avec leurs valeurs
+nutritionnelles. Le modèle ne fournit aucune valeur nutritionnelle : le schéma
+qui lui est envoyé n'en prévoit pas, et la validation écarte ce qui n'y figure
+pas (spec 07 §1, §4). Un libellé sans correspondance donne une liste de
+candidats vide, jamais une erreur.
+
+Une unité proposée que l'aliment retenu ne sait pas convertir est remplacée par
+son unité de référence : la transmettre ferait échouer la confirmation en 400
+pour un choix que l'utilisateur n'a pas fait (spec 01 §9).
+
+L'IA coupée par un administrateur, non configurée ou sans clé répond **503**
+`ai_disabled`. Le reste de l'application n'en est pas affecté (spec 07 §11).
 
 ## 11. Shopping lists
 

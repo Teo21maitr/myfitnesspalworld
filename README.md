@@ -10,8 +10,8 @@ spécifications qui fait foi pour toutes les règles métier.
 > l'onboarding, obtenir un objectif calorique calculé, rechercher parmi les 3 185 aliments de la
 > table Ciqual, scanner un code-barres, tenir son journal alimentaire, copier une journée vers
 > d'autres dates, suivre son poids et ses mensurations, composer des recettes et des repas
-> enregistrés, se lier d'amitié, partager, et générer sa liste de courses. Le planner, les
-> rapports, l'analyse et l'IA restent à faire.
+> enregistrés, se lier d'amitié, partager, générer sa liste de courses, et faire reconnaître un
+> repas sur une photo. Le planner, les rapports, l'analyse et la saisie vocale restent à faire.
 
 ## Sommaire
 
@@ -31,6 +31,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
 - [Liste de courses](#liste-de-courses)
+- [Meal Scan et le socle IA](#meal-scan-et-le-socle-ia)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -157,6 +158,8 @@ Migrations existantes :
 | `social/0001_initial` | `FriendRequest`, `Friendship`, `SharePermission` |
 | `planning/0001_initial` | `ShoppingList`, `ShoppingListItem` |
 | `social/0002_alter_sharepermission_resource_type` | la liste de courses devient partageable |
+| `common/0002_app_settings_and_async_tasks` | `AppSetting`, `AsyncTask` |
+| `ai/0001_initial` | `AITaskLog` |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -741,6 +744,86 @@ aliments, les recettes, les repas enregistrés et les listes appellent tous.
 L'extraction n'a demandé aucune modification des tests existants — c'est ce qui la distingue d'une
 réécriture.
 
+## Meal Scan et le socle IA
+
+Photographier une assiette, laisser un modèle nommer ce qu'il y voit, corriger, journaliser.
+
+### Le modèle propose des mots, la base fournit les calories
+
+Un modèle à qui l'on montre une assiette répond volontiers « Poulet grillé, 150 g, **248 kcal** ».
+Le nombre est plausible. Il est inventé.
+
+S'il entrait dans le journal, l'application mentirait sur la seule chose qu'elle existe pour
+mesurer — sans écran rouge, sans total aberrant, sans rien qui le signale.
+
+La parade est structurelle, pas disciplinaire. Trois barrières indépendantes :
+
+1. le **schéma JSON** envoyé au fournisseur ne déclare aucune propriété nutritionnelle, et interdit
+   tout champ supplémentaire ;
+2. le **serializer** de validation ne conserve que les cinq champs attendus — libellé, quantité,
+   unité, confiance, alternatives — et écarte le reste ;
+3. la **construction du résultat** est explicite : elle recopie ces champs, jamais l'objet reçu.
+
+Le libellé est ensuite cherché dans le référentiel avec la recherche ordinaire, celle du champ de
+recherche, et les valeurs affichées sont celles des fiches trouvées.
+
+Le fournisseur simulé renvoie délibérément un `energy_kcal: 9999`. Chaque exécution des tests, et
+chaque passage du parcours de bout en bout, prouve donc qu'il n'atteint ni l'écran ni le journal.
+
+### L'endpoint ne journalise rien
+
+`POST /ai/meal-scan/` rend des suggestions et **crée zéro entrée**. C'est `/diary/entries/` qui
+écrit, une fois l'utilisateur passé par l'écran de correction — la même route que la recherche
+manuelle, qui sait déjà résoudre l'aliment, vérifier l'unité et figer le snapshot.
+
+Une unité que l'aliment retenu ne sait pas convertir est remplacée par son unité de référence, des
+deux côtés : le backend l'ajuste sur le candidat par défaut, le frontend le refait à chaque
+changement d'aliment. Sans cela, la confirmation échouerait en 400 pour un choix que l'utilisateur
+n'a pas fait.
+
+### La photo ne survit pas au traitement
+
+Elle ne peut pas transiter par un fichier temporaire — en production, l'API et le worker sont deux
+conteneurs, donc deux systèmes de fichiers — ni par le broker, dont le sérialiseur est JSON.
+
+Elle est déposée dans Redis sous une clé non devinable, avec une durée de vie de dix minutes, et le
+worker ne reçoit que la clé. Il la lit une fois puis **la supprime, y compris quand le fournisseur
+échoue** ; la durée de vie n'est que le filet pour le worker qui meurt avant.
+
+Aucun octet n'atteint le disque. `AITaskLog` ne conserve que la forme de l'entrée — « 1 image(s),
+84 ko » — jamais son contenu, jamais le prompt.
+
+### Ce qu'`AsyncTask` fait que Celery ne fait pas
+
+Le backend de résultats de Celery ignore la notion de propriétaire : un identifiant deviné y
+donnerait accès au résultat de n'importe qui. La table applicative existe d'abord pour attacher une
+tâche à un compte — `GET /tasks/{id}/` filtre sur le propriétaire et répond **404**, jamais 403.
+
+Elle porte accessoirement une progression que Celery ne modélise pas, et une échéance : passé un
+jour, le résultat n'intéresse plus personne et une tâche planifiée nocturne le supprime.
+
+### Couper l'IA sans redéployer
+
+`AI_ENABLED` et `ANTHROPIC_API_KEY` disent si l'IA est *configurée*. Les changer suppose un
+redéploiement — ce n'est pas un interrupteur.
+
+Le coupe-circuit de la spec 07 §11 vit en base : le réglage `ai_enabled` d'`AppSetting`, modifiable
+depuis l'admin Django, relu à chaque appel. À `false`, l'endpoint répond **503 `ai_disabled`** et
+tout le reste de l'application continue de fonctionner.
+
+Le quota `ai` de 30 appels par heure n'est pas une limite produit — la spec 07 §5 veut l'usage
+illimité — mais une protection contre une boucle emballée.
+
+### Ajouter un fournisseur, ajouter une tâche
+
+`AIProvider` ne connaît ni aliment ni calorie : il sait envoyer un prompt et rendre du JSON conforme
+à un schéma, en utilisant le mécanisme natif de son API. Les schémas métier et leur validation
+vivent au-dessus.
+
+Ajouter `OpenAIProvider` sera donc un fichier ; ajouter la saisie vocale ou le planner, une méthode
+de service. `AI_PROVIDER` choisit entre `anthropic` et `fake` — cette seconde valeur étant refusée
+au démarrage en production.
+
 ## Tests, lint et typecheck
 
 ### Backend
@@ -767,9 +850,13 @@ npm run build             # build de production
 
 ### Bout en bout (Playwright)
 
-Deux parcours : cycle de vie du compte (inscription → validation → connexion → onboarding →
-route privée → déconnexion) et aliments (recherche → fiche → favori → création). Playwright démarre
-lui-même le backend et un build servi en statique.
+Dix parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
+partage, liste de courses et Meal Scan. Playwright démarre lui-même le backend et un build servi en
+statique.
+
+Le parcours Meal Scan force `AI_PROVIDER=fake` et `CELERY_TASK_ALWAYS_EAGER=True` : l'analyse
+devient déterministe et ne réclame ni clé d'API ni worker. Les deux valeurs sont refusées au
+démarrage en production.
 
 ```bash
 cd frontend
@@ -800,7 +887,7 @@ fichiers d'environnement de sa propre racine.
 | Cookies d'auth | `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAMESITE`, `AUTH_COOKIE_DOMAIN`, `AUTH_COOKIE_REFRESH_PATH` |
 | Mot de passe | `PASSWORD_RESET_TIMEOUT` (durée du lien de réinitialisation, en secondes) |
 | Open Food Facts | `OFF_ENABLED`, `OFF_PRODUCT_URL`, `OFF_SEARCH_URL`, `OFF_CONTACT_EMAIL`, `OFF_USER_AGENT`, `OFF_CONNECT_TIMEOUT`, `OFF_READ_TIMEOUT`, `OFF_PRODUCT_RATE_PER_MINUTE`, `OFF_SEARCH_RATE_PER_MINUTE`, `OFF_CACHE_TTL_DAYS` |
-| IA | `AI_ENABLED`, `ANTHROPIC_API_KEY`, `AI_MEAL_SCAN_MODEL`, `AI_MEAL_PLANNER_MODEL`, `AI_VOICE_PARSING_MODEL`, `AI_RECIPE_MODEL` |
+| IA | `AI_ENABLED`, `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `AI_MEAL_SCAN_MODEL`, `AI_MEAL_PLANNER_MODEL`, `AI_VOICE_PARSING_MODEL`, `AI_RECIPE_MODEL` |
 | Email | `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` |
 | Stockage S3 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION` |
 | Uploads | `MAX_UPLOAD_SIZE_MB` |
@@ -810,7 +897,8 @@ fichiers d'environnement de sa propre racine.
 Renseignez `OFF_CONTACT_EMAIL` : Open Food Facts exige un User-Agent identifiant l'application
 et un contact, faute de quoi les appels risquent d'être pris pour ceux d'un robot.
 
-Les variables IA et S3 sont déclarées et lues, mais aucune fonctionnalité ne les utilise encore.
+`AI_MEAL_SCAN_MODEL` est le seul modèle utilisé à ce stade ; les trois autres attendent leurs
+fonctionnalités. Les variables S3 sont déclarées mais pas encore employées.
 
 ## Structure du dépôt
 
