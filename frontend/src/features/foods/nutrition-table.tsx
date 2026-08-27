@@ -1,39 +1,7 @@
 import type { FoodNutrition } from '@/lib/api/types'
 
 import { NutrientValue } from './nutrient-value'
-
-interface Row {
-  label: string
-  key: keyof FoodNutrition
-  unit: string
-}
-
-const MACROS: Row[] = [
-  { label: 'Énergie', key: 'energy_kcal', unit: 'kcal' },
-  { label: 'Protéines', key: 'protein_g', unit: 'g' },
-  { label: 'Glucides', key: 'carbohydrates_g', unit: 'g' },
-  { label: 'dont sucres', key: 'sugars_g', unit: 'g' },
-  { label: 'Lipides', key: 'fat_g', unit: 'g' },
-  { label: 'Fibres', key: 'fiber_g', unit: 'g' },
-  { label: 'Glucides nets', key: 'net_carbs_g', unit: 'g' },
-]
-
-const MICROS: Row[] = [
-  { label: 'Sel', key: 'salt_g', unit: 'g' },
-  { label: 'Sodium', key: 'sodium_mg', unit: 'mg' },
-  { label: 'Cholestérol', key: 'cholesterol_mg', unit: 'mg' },
-  { label: 'Potassium', key: 'potassium_mg', unit: 'mg' },
-  { label: 'Calcium', key: 'calcium_mg', unit: 'mg' },
-  { label: 'Fer', key: 'iron_mg', unit: 'mg' },
-  { label: 'Magnésium', key: 'magnesium_mg', unit: 'mg' },
-  { label: 'Vitamine A', key: 'vitamin_a_ug', unit: 'µg' },
-  { label: 'Vitamine B6', key: 'vitamin_b6_mg', unit: 'mg' },
-  { label: 'Vitamine B12', key: 'vitamin_b12_ug', unit: 'µg' },
-  { label: 'Vitamine C', key: 'vitamin_c_mg', unit: 'mg' },
-  { label: 'Vitamine D', key: 'vitamin_d_ug', unit: 'µg' },
-  { label: 'Vitamine E', key: 'vitamin_e_mg', unit: 'mg' },
-  { label: 'Vitamine K', key: 'vitamin_k_ug', unit: 'µg' },
-]
+import { MACROS, MICROS, type Row } from './nutrients'
 
 function Section({
   title,

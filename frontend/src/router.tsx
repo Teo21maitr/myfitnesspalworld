@@ -26,6 +26,11 @@ import { JournalPage } from '@/pages/journal-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import { OnboardingPage } from '@/pages/onboarding-page'
 import { ProgressPage } from '@/pages/progress-page'
+import { EditRecipePage } from '@/pages/recipes/edit-recipe-page'
+import { NewRecipePage } from '@/pages/recipes/new-recipe-page'
+import { RecipeDetailPage } from '@/pages/recipes/recipe-detail-page'
+import { RecipesPage } from '@/pages/recipes/recipes-page'
+import { SavedMealsPage } from '@/pages/saved-meals-page'
 
 export const routes = [
   {
@@ -80,6 +85,11 @@ export const routes = [
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
       { path: 'ajout-rapide', element: <QuickAddPage /> },
+      { path: 'recettes', element: <RecipesPage /> },
+      { path: 'recettes/nouvelle', element: <NewRecipePage /> },
+      { path: 'recettes/:id', element: <RecipeDetailPage /> },
+      { path: 'recettes/:id/modifier', element: <EditRecipePage /> },
+      { path: 'mes-repas', element: <SavedMealsPage /> },
       { path: 'progression', element: <ProgressPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
       { path: 'compte', element: <AccountPage /> },
