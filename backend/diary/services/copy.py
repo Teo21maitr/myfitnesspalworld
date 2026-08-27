@@ -14,6 +14,11 @@ elle repart des valeurs actuelles de l'aliment.
 L'implémentation naïve — recopier la ligne — donne le mauvais résultat
 silencieusement : la copie porterait des valeurs périmées sans que rien ne le
 signale.
+
+La règle vaut pour les **trois** natures d'entrée. Une recette n'a pas de
+`food_id` : ne traiter que l'aliment la ferait tomber dans le repli prévu pour
+les sources disparues, et sa copie porterait l'ancienne version de la recette
+sans que rien ne l'indique.
 """
 
 from datetime import date as date_type
@@ -26,10 +31,16 @@ from django.db import transaction
 from accounts.models import User
 from diary.models import DiaryEntry, MealType
 from diary.services.day import day_entries
-from diary.services.entries import build_food_snapshot, create_food_entry, get_or_create_day
+from diary.services.entries import (
+    build_food_snapshot,
+    build_recipe_snapshot,
+    create_food_entry,
+    get_or_create_day,
+)
 from nutrition.models import Food
 from nutrition.services.quantities import resolve_factor
 from nutrition.services.search import record_food_usage
+from recipes.models import Recipe
 
 #: Champs de saisie recopiés tels quels : ils décrivent ce qui a été mangé,
 #: pas ce que valait l'aliment.
@@ -50,6 +61,14 @@ def _current_food(user: User, entry: DiaryEntry) -> Food | None:
     )
 
 
+def _current_recipe(user: User, entry: DiaryEntry) -> Recipe | None:
+    """Version actuelle de la recette, si elle est encore visible par l'appelant."""
+    if entry.recipe_id is None:
+        return None
+
+    return Recipe.objects.visible_to(user).filter(pk=entry.recipe_id).first()
+
+
 def _shift_time(consumed_at: datetime, day: date_type) -> datetime:
     """Conserve l'heure, change la date (spec 01 §5 : « horaires copiés »)."""
     return consumed_at.replace(year=day.year, month=day.month, day=day.day)
@@ -65,17 +84,19 @@ def copy_entry(
 ) -> DiaryEntry:
     """Crée une nouvelle entrée à partir d'une existante.
 
-    Repart des valeurs actuelles de l'aliment quand il est encore là. Sinon —
-    aliment supprimé, devenu invisible, ou entrée d'ajout rapide — le snapshot
-    stocké est recopié tel quel : refuser ferait échouer la copie d'une journée
-    entière pour un seul produit disparu.
+    Repart des valeurs actuelles de la source quand elle est encore là :
+    l'aliment pour une entrée d'aliment, la recette pour une entrée de recette.
+    Sinon — source supprimée, devenue invisible, ou entrée d'ajout rapide — le
+    snapshot stocké est recopié tel quel : refuser ferait échouer la copie
+    d'une journée entière pour un seul produit disparu.
     """
     food = _current_food(user, entry)
+    recipe = _current_recipe(user, entry) if food is None else None
 
-    snapshot = build_food_snapshot(food) if food else _stored_snapshot(entry)
     unit_factor = entry.snapshot_unit_factor
 
     if food is not None:
+        snapshot = build_food_snapshot(food)
         try:
             # L'unité peut avoir cessé d'être calculable — une portion supprimée
             # entre-temps, par exemple. Le facteur figé prend alors le relais
@@ -83,12 +104,19 @@ def copy_entry(
             unit_factor = resolve_factor(food, entry.unit_label)
         except ValidationError:
             unit_factor = entry.snapshot_unit_factor
+    elif recipe is not None:
+        # Une portion vaut une portion : le facteur reste à 1, seul le contenu
+        # de la recette a pu changer.
+        snapshot = build_recipe_snapshot(recipe)
+    else:
+        snapshot = _stored_snapshot(entry)
 
     copied = DiaryEntry.objects.create(
         diary_day=get_or_create_day(user, day),
         meal_type=meal_type or entry.meal_type,
         consumed_at=_shift_time(entry.consumed_at, day),
         food=food,
+        recipe=recipe,
         snapshot_unit_factor=unit_factor,
         **{field: getattr(entry, field) for field in _CARRIED_FIELDS},
         **snapshot,

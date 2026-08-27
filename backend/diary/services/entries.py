@@ -13,8 +13,10 @@ from django.db import transaction
 from accounts.models import User
 from diary.models import SNAPSHOT_NUTRIENT_FIELDS, DiaryDay, DiaryEntry, EntryType, MealType
 from nutrition.models import Food, UnitType
+from nutrition.services.aggregation import sum_values
 from nutrition.services.quantities import multiplier, resolve_factor
 from nutrition.services.search import record_food_usage
+from recipes.services.nutrition import ensure_fresh
 
 #: Une entrée d'ajout rapide porte ses valeurs telles quelles.
 QUICK_ADD_REFERENCE_AMOUNT = Decimal("1")
@@ -22,6 +24,11 @@ QUICK_ADD_UNIT_LABEL = "portion"
 
 #: Nutriments modifiables sur un ajout rapide (spec 01 §12).
 QUICK_ADD_FIELDS = ("energy_kcal", "protein_g", "carbohydrates_g", "fat_g")
+
+#: Une entrée de recette se compte en portions, comme un ajout rapide : sa
+#: référence vaut une portion, et sa quantité leur nombre.
+RECIPE_REFERENCE_AMOUNT = Decimal("1")
+RECIPE_UNIT_LABEL = "portion"
 
 
 def get_or_create_day(user: User, day: date_type) -> DiaryDay:
@@ -88,6 +95,59 @@ def create_food_entry(
     return entry
 
 
+def build_recipe_snapshot(recipe) -> dict:
+    """Recopie l'identité et la nutrition **par portion** d'une recette.
+
+    Le cache est rafraîchi au passage : journaliser une recette dont un
+    ingrédient a changé depuis doit partir des valeurs à jour.
+    """
+    nutrition = ensure_fresh(recipe)
+
+    snapshot = {
+        "snapshot_name": recipe.name,
+        "snapshot_brand": "",
+        "snapshot_source": EntryType.RECIPE,
+        "snapshot_reference_amount": RECIPE_REFERENCE_AMOUNT,
+        "snapshot_reference_unit": UnitType.UNIT,
+    }
+
+    for field in SNAPSHOT_NUTRIENT_FIELDS:
+        snapshot[field] = getattr(nutrition, field.removeprefix("snapshot_"), None)
+
+    return snapshot
+
+
+@transaction.atomic
+def create_recipe_entry(
+    *,
+    user: User,
+    recipe,
+    day: date_type,
+    meal_type: MealType,
+    servings: Decimal,
+    consumed_at,
+    note: str = "",
+) -> DiaryEntry:
+    """Journalise N portions d'une recette (spec 01 §14).
+
+    Une seule entrée, pas une par ingrédient : c'est le plat qui a été mangé.
+    Elle emprunte la forme de l'ajout rapide — une référence d'une portion,
+    comptée en unités — car une portion se compte et ne se pèse pas.
+    """
+    return DiaryEntry.objects.create(
+        diary_day=get_or_create_day(user, day),
+        meal_type=meal_type,
+        entry_type=EntryType.RECIPE,
+        consumed_at=consumed_at,
+        quantity=servings,
+        unit_label=RECIPE_UNIT_LABEL,
+        note=note,
+        recipe=recipe,
+        snapshot_unit_factor=Decimal("1"),
+        **build_recipe_snapshot(recipe),
+    )
+
+
 @transaction.atomic
 def create_quick_add_entry(
     *,
@@ -145,40 +205,9 @@ def computed_nutrition(entry: DiaryEntry) -> dict[str, Decimal | None]:
 def sum_nutrition(entries) -> tuple[dict[str, Decimal | None], list[str]]:
     """Totalise plusieurs entrées.
 
-    Renvoie les totaux et la liste des nutriments dont au moins une entrée
-    n'était pas renseignée. Additionner en ignorant les inconnues reviendrait à
-    les compter pour zéro : le total reste utile, mais il est signalé comme
-    partiel plutôt que présenté comme exact (spec 01 §8).
-
-    Sans aucune entrée, les totaux valent zéro et non « inconnu » : on sait que
-    rien n'a été consommé.
+    La règle « inconnu n'est pas zéro » vit dans `nutrition.services.aggregation`,
+    partagée avec les recettes : l'écrire ici aussi la ferait diverger.
     """
     names = [field.removeprefix("snapshot_") for field in SNAPSHOT_NUTRIENT_FIELDS]
 
-    # Rien de consommé n'est pas une donnée manquante : c'est zéro. La nuance
-    # compte à l'écran, où « — » signifie « on ne sait pas » (spec 01 §8).
-    if not entries:
-        return dict.fromkeys(names, Decimal(0)), []
-
-    # Toujours la même forme : le frontend n'a pas à distinguer « nutriment
-    # absent de la réponse » de « inconnu ».
-    totals: dict[str, Decimal | None] = dict.fromkeys(names)
-    known: dict[str, bool] = {}
-    incomplete: set[str] = set()
-
-    for entry in entries:
-        for name, value in computed_nutrition(entry).items():
-            if value is None:
-                incomplete.add(name)
-                totals.setdefault(name, None)
-                continue
-
-            totals[name] = value if not known.get(name) else totals[name] + value
-            known[name] = True
-
-    # Un nutriment qu'aucune entrée ne renseigne reste inconnu, pas nul.
-    for name in totals:
-        if not known.get(name):
-            totals[name] = None
-
-    return totals, sorted(incomplete & set(known))
+    return sum_values((computed_nutrition(entry) for entry in entries), names)

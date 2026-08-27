@@ -170,6 +170,14 @@ class DiaryEntry(models.Model):
         related_name="diary_entries",
         verbose_name="aliment",
     )
+    recipe = models.ForeignKey(
+        "recipes.Recipe",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="diary_entries",
+        verbose_name="recette",
+    )
 
     # --- Snapshot : identité ---
     snapshot_name = models.CharField("nom", max_length=255)
