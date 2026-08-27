@@ -1,4 +1,13 @@
-import { Apple, BookOpen, ScanBarcode, Target, TrendingUp, TriangleAlert, Zap } from 'lucide-react'
+import {
+  Apple,
+  BookOpen,
+  ChefHat,
+  ScanBarcode,
+  Target,
+  TrendingUp,
+  TriangleAlert,
+  Zap,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -20,6 +29,7 @@ const SHORTCUTS = [
   { to: '/aliments', label: 'Ajouter un aliment', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
   { to: '/ajout-rapide', label: 'Ajout rapide', Icon: Zap },
+  { to: '/recettes', label: 'Recettes', Icon: ChefHat },
 ]
 
 function CaloriesCard({ day }: { day: Dashboard }) {

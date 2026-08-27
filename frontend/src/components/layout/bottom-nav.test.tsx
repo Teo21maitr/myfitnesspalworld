@@ -24,6 +24,17 @@ describe('Barre de navigation mobile', () => {
     expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument()
   })
 
+  it('propose de journaliser depuis une recette', async () => {
+    // Cuisiner un plat et le journaliser est un geste quotidien : il a sa
+    // place à côté du scanner (spec 06 §2).
+    const user = userEvent.setup()
+    renderNav()
+
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+
+    expect(screen.getByRole('menuitem', { name: 'Depuis une recette' })).toBeInTheDocument()
+  })
+
   it('garde le menu d’ajout fermé par défaut', () => {
     renderNav()
 
