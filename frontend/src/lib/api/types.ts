@@ -142,6 +142,31 @@ export interface WeightEntry {
   updated_at: string
 }
 
+export type ShoppingItemSource = 'manual' | 'recipe' | 'meal_plan' | 'diary'
+
+export interface ShoppingListItem {
+  id: number
+  name: string
+  /** Nul pour un article ajouté à la main ou dont l'aliment a disparu. */
+  food: number | null
+  /** Nulle quand on ne la connaît pas : « du sel » est un article valable. */
+  quantity: string | null
+  unit_label: string | null
+  is_checked: boolean
+  sort_order: number
+  source_type: ShoppingItemSource
+}
+
+export interface ShoppingList {
+  id: number
+  name: string
+  visibility: Visibility
+  items: ShoppingListItem[]
+  is_editable: boolean
+  created_at: string
+  updated_at: string
+}
+
 /** Ce qu'un autre compte peut savoir d'un utilisateur (spec 01 §1). */
 export interface UserSummary {
   id: number
@@ -163,7 +188,8 @@ export interface FriendRequest {
 }
 
 /** Ressources partageables (spec 01 §18). Les photos n'en font jamais partie. */
-export type ShareResourceType = 'food' | 'recipe' | 'saved_meal' | 'diary' | 'progress'
+export type ShareResourceType =
+  'food' | 'recipe' | 'saved_meal' | 'shopping_list' | 'diary' | 'progress'
 
 export type ShareVisibility = 'specific_user' | 'app_users'
 
