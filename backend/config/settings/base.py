@@ -9,6 +9,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 # backend/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -233,6 +234,21 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 10 * 60
 CELERY_TASK_SOFT_TIME_LIMIT = 9 * 60
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Exécution synchrone, dans le processus appelant : utile pour développer sans
+# worker et pour rendre les parcours de bout en bout déterministes. La
+# production la refuse — une requête HTTP y attendrait une analyse d'IA.
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+
+# Entretien planifié. Un résultat de tâche n'intéresse personne passé le délai
+# où le frontend vient le chercher : sans ce nettoyage, la table grossirait
+# indéfiniment.
+CELERY_BEAT_SCHEDULE = {
+    "purge-expired-async-tasks": {
+        "task": "common.tasks.purge_expired_tasks",
+        "schedule": crontab(hour=4, minute=0),
+    },
+}
 
 CACHES = {
     "default": {

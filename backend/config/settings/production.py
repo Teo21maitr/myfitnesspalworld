@@ -1,7 +1,9 @@
 """Réglages de production (spec 05 §13, spec 09 §8)."""
 
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *
-from .base import env
+from .base import CELERY_TASK_ALWAYS_EAGER, env
 
 DEBUG = False
 
@@ -32,6 +34,11 @@ AUTH_COOKIE_SECURE = env.bool("AUTH_COOKIE_SECURE", default=True)
 AUTH_COOKIE_SAMESITE = env.str("AUTH_COOKIE_SAMESITE", default="None")
 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)
+
+# En exécution synchrone, une requête tiendrait la connexion HTTP pendant tout
+# le traitement qu'elle a déclenché.
+if CELERY_TASK_ALWAYS_EAGER:
+    raise ImproperlyConfigured("CELERY_TASK_ALWAYS_EAGER est interdit en production.")
 
 # Sert les fichiers statiques de l'admin sans serveur web dédié.
 MIDDLEWARE = [

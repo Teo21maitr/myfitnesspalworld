@@ -16,7 +16,7 @@ from social.urls import (
     user_patterns,
 )
 
-from .views import HealthView
+from .views import AsyncTaskDetailView, HealthView
 
 app_name = "common"
 
@@ -42,4 +42,7 @@ urlpatterns = [
     path("friend-requests/", include((friend_request_patterns, "friend-requests"))),
     path("shares/", include((share_patterns, "shares"))),
     path("shared/", include((shared_patterns, "shared"))),
+    # Suivi générique des traitements longs : l'IA aujourd'hui, les
+    # rapports lourds demain (spec 04 §9).
+    path("tasks/<uuid:pk>/", AsyncTaskDetailView.as_view(), name="task-detail"),
 ]
