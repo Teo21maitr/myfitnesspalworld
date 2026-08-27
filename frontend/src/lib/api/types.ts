@@ -142,6 +142,66 @@ export interface WeightEntry {
   updated_at: string
 }
 
+/** Valeurs nutritionnelles d'une recette, **pour une portion** (spec 01 §14). */
+export interface RecipeNutrition extends NutritionValues {
+  net_carbs_g: string | null
+  /** Nutriments qu'au moins un ingrédient ne renseigne pas (spec 01 §8). */
+  incomplete_nutrients: string[]
+}
+
+export interface RecipeIngredient {
+  id: number
+  /** Nul si l'aliment a disparu ; `food_name` reste lisible. */
+  food: number | null
+  food_name: string
+  quantity: string
+  unit_label: string
+  sort_order: number
+}
+
+export interface RecipeListItem {
+  id: number
+  name: string
+  description: string
+  servings: string
+  visibility: Visibility
+  is_favorite: boolean
+  nutrition: RecipeNutrition | null
+  ingredient_count: number
+  is_editable: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RecipeDetail extends RecipeListItem {
+  instructions: string
+  ingredients: RecipeIngredient[]
+}
+
+export type SavedMealItemType = 'food' | 'recipe'
+
+export interface SavedMealItem {
+  id: number
+  item_type: SavedMealItemType
+  food: number | null
+  recipe: number | null
+  item_name: string
+  quantity: string
+  unit_label: string
+  sort_order: number
+}
+
+export interface SavedMeal {
+  id: number
+  name: string
+  description: string
+  visibility: Visibility
+  items: SavedMealItem[]
+  is_editable: boolean
+  created_at: string
+  updated_at: string
+}
+
 /** Mensurations d'une date. Chaque mesure est facultative (spec 01 §19). */
 export interface BodyMeasurementEntry {
   id: number
@@ -190,7 +250,10 @@ export interface DetailResponse {
 
 export type FoodSource = 'ciqual' | 'off' | 'user' | 'generated'
 
-export type FoodVisibility = 'private' | 'specific_users' | 'app_users'
+/** Trois portées de partage, communes aux aliments, recettes et repas (spec 01 §18). */
+export type Visibility = 'private' | 'specific_users' | 'app_users'
+
+export type FoodVisibility = Visibility
 
 export type UnitType = 'g' | 'ml' | 'unit'
 
