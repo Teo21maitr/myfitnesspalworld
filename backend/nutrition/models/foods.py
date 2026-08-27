@@ -16,6 +16,8 @@ from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower
 
+from .nutrients import NutrientValues
+
 
 class FoodSource(models.TextChoices):
     """Provenance de la fiche (spec 03 §3)."""
@@ -187,72 +189,16 @@ class Food(models.Model):
         return self.get_source_display()
 
 
-class FoodNutrition(models.Model):
+class FoodNutrition(NutrientValues):
     """Valeurs nutritionnelles pour la quantité de référence de l'aliment.
 
-    Tous les champs sont nullables : une donnée absente de la source reste
-    absente, elle n'est jamais remplacée par zéro (spec 01 §8).
+    Les champs viennent de `NutrientValues`, partagé avec la recette : le
+    journal recopie l'un ou l'autre dans le même jeu de colonnes de snapshot,
+    et deux listes séparées finiraient par diverger.
     """
 
     food = models.OneToOneField(
         Food, on_delete=models.CASCADE, related_name="nutrition", verbose_name="aliment"
-    )
-
-    energy_kcal = models.DecimalField(
-        "énergie (kcal)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    protein_g = models.DecimalField(
-        "protéines (g)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    carbohydrates_g = models.DecimalField(
-        "glucides (g)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    fat_g = models.DecimalField(
-        "lipides (g)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    fiber_g = models.DecimalField(
-        "fibres (g)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    sugars_g = models.DecimalField(
-        "sucres (g)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    sodium_mg = models.DecimalField(
-        "sodium (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    salt_g = models.DecimalField("sel (g)", max_digits=9, decimal_places=3, null=True, blank=True)
-    cholesterol_mg = models.DecimalField(
-        "cholestérol (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    potassium_mg = models.DecimalField(
-        "potassium (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    calcium_mg = models.DecimalField(
-        "calcium (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    iron_mg = models.DecimalField("fer (mg)", max_digits=9, decimal_places=3, null=True, blank=True)
-    magnesium_mg = models.DecimalField(
-        "magnésium (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_a_ug = models.DecimalField(
-        "vitamine A (µg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_b6_mg = models.DecimalField(
-        "vitamine B6 (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_b12_ug = models.DecimalField(
-        "vitamine B12 (µg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_c_mg = models.DecimalField(
-        "vitamine C (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_d_ug = models.DecimalField(
-        "vitamine D (µg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_e_mg = models.DecimalField(
-        "vitamine E (mg)", max_digits=9, decimal_places=3, null=True, blank=True
-    )
-    vitamin_k_ug = models.DecimalField(
-        "vitamine K (µg)", max_digits=9, decimal_places=3, null=True, blank=True
     )
 
     class Meta:
@@ -261,16 +207,6 @@ class FoodNutrition(models.Model):
 
     def __str__(self) -> str:
         return f"Nutrition de {self.food.name}"
-
-    @property
-    def net_carbs_g(self):
-        """Glucides nets = glucides - fibres (spec 01 §4).
-
-        Reste inconnu si l'une des deux valeurs manque.
-        """
-        if self.carbohydrates_g is None or self.fiber_g is None:
-            return None
-        return self.carbohydrates_g - self.fiber_g
 
 
 class FoodPortion(models.Model):
