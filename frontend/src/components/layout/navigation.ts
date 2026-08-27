@@ -4,6 +4,7 @@ import {
   ChefHat,
   Home,
   ScanBarcode,
+  ScanEye,
   Share2,
   ShoppingCart,
   Target,
@@ -41,7 +42,7 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 ]
 
 /**
- * Entrées du menu `+`, en attendant Meal Scan et la saisie vocale.
+ * Entrées du menu `+`, en attendant la saisie vocale.
  *
  * Les recettes y figurent : journaliser un plat qu'on a cuisiné est un geste
  * quotidien, au même titre que scanner un produit.
@@ -49,6 +50,7 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 export const ADD_MENU_ITEMS: NavItem[] = [
   { to: '/aliments', label: 'Ajouter un aliment', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
+  { to: '/meal-scan', label: 'Meal Scan', Icon: ScanEye },
   { to: '/recettes', label: 'Depuis une recette', Icon: ChefHat },
   { to: '/ajout-rapide', label: 'Ajout rapide', Icon: Zap },
 ]
@@ -63,6 +65,9 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/journal', label: 'Journal', Icon: BookOpen },
   { to: '/aliments', label: 'Aliments', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
+  // Le menu `+` n'existe pas sur desktop : sans cette entrée, Meal Scan y
+  // serait inatteignable.
+  { to: '/meal-scan', label: 'Meal Scan', Icon: ScanEye },
   { to: '/recettes', label: 'Recettes', Icon: ChefHat },
   { to: '/mes-repas', label: 'Mes repas', Icon: UtensilsCrossed },
   { to: '/courses', label: 'Courses', Icon: ShoppingCart },

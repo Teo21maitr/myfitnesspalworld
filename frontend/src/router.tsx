@@ -14,6 +14,7 @@ import { FoodDetailPage } from '@/pages/foods/food-detail-page'
 import { FoodSearchPage } from '@/pages/foods/food-search-page'
 import { QuickAddPage } from '@/pages/diary/quick-add-page'
 import { LazyScannerPage } from '@/pages/foods/lazy-scanner-page'
+import { LazyMealScanPage } from '@/pages/lazy-meal-scan-page'
 import { MyFoodsPage } from '@/pages/foods/my-foods-page'
 import { GoalsPage } from '@/pages/goals-page'
 import { ForgotPasswordPage } from '@/pages/auth/forgot-password-page'
@@ -90,6 +91,7 @@ export const routes = [
       { path: 'mes-aliments', element: <MyFoodsPage /> },
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
+      { path: 'meal-scan', element: <LazyMealScanPage /> },
       { path: 'ajout-rapide', element: <QuickAddPage /> },
       { path: 'recettes', element: <RecipesPage /> },
       { path: 'recettes/nouvelle', element: <NewRecipePage /> },
