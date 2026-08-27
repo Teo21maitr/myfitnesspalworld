@@ -11,7 +11,6 @@ from nutrition.models import (
     FoodNutrition,
     FoodPortion,
     FoodSource,
-    FoodVisibility,
     UnitType,
 )
 from nutrition.services.quantities import available_units as food_available_units
@@ -201,15 +200,6 @@ class FoodWriteSerializer(serializers.ModelSerializer):
             "nutrition",
         )
         read_only_fields = ("id",)
-
-    def validate_visibility(self, value: str) -> str:
-        # Le partage à des utilisateurs précis demande `SharePermission`, qui
-        # n'existera qu'avec la fonctionnalité de partage.
-        if value == FoodVisibility.SPECIFIC_USERS:
-            raise serializers.ValidationError(
-                "Le partage à des utilisateurs précis n’est pas encore disponible."
-            )
-        return value
 
     def validate_reference_amount(self, value):
         if value <= 0:

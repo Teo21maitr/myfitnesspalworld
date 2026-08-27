@@ -171,13 +171,14 @@ def test_la_source_ne_peut_pas_etre_imposee(auth_client):
     assert Food.objects.get(name="Granola maison").source == FoodSource.USER
 
 
-def test_le_partage_cible_est_refuse(auth_client):
+def test_le_partage_cible_est_accepte(auth_client):
+    """La visibilité dit combien ; `SharePermission` dit qui (spec 01 §18)."""
     response = auth_client.post(
         LIST_URL, {**NEW_FOOD, "visibility": FoodVisibility.SPECIFIC_USERS}, format="json"
     )
 
-    assert response.status_code == 400
-    assert "visibility" in response.json()["errors"]
+    assert response.status_code == 201
+    assert Food.objects.get(name="Granola maison").visibility == FoodVisibility.SPECIFIC_USERS
 
 
 def test_modification_de_son_aliment(auth_client, active_user):

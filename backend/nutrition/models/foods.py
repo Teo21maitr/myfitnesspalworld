@@ -31,8 +31,8 @@ class FoodSource(models.TextChoices):
 class FoodVisibility(models.TextChoices):
     """Visibilité d'un aliment personnel (spec 01 §18).
 
-    `SPECIFIC_USERS` existe dans le modèle mais n'est pas encore applicable :
-    il dépend de `SharePermission`, qui arrivera avec le partage.
+    `SPECIFIC_USERS` désigne les comptes nommés par une `SharePermission` ;
+    la visibilité seule ne dit pas qui, elle dit combien.
     """
 
     PRIVATE = "private", "Privé"
@@ -69,13 +69,21 @@ class FoodQuerySet(models.QuerySet):
 
     def visible_to(self, user):
         """Aliments qu'un utilisateur a le droit de consulter (spec 05 §6)."""
+        # Import tardif : `social` dépend des apps métier pour résoudre une
+        # ressource, et l'importer au chargement des modèles créerait un cycle.
+        from social.models import ResourceType
+        from social.services.sharing import active_owner, shared_resource_ids
+
         return self.active().filter(
             # Sources globales : lisibles par tout compte actif.
             Q(source__in=[FoodSource.CIQUAL, FoodSource.OFF])
             # Ses propres aliments, quelle que soit leur visibilité.
             | Q(owner=user)
-            # Ceux que d'autres ont ouverts à tous les comptes actifs.
-            | Q(visibility=FoodVisibility.APP_USERS)
+            # Ceux que d'autres ont ouverts à tous les comptes actifs — sauf
+            # si leur propriétaire a été suspendu (spec 05 §2).
+            | (Q(visibility=FoodVisibility.APP_USERS) & active_owner())
+            # Ceux qu'on lui a partagés nommément.
+            | Q(pk__in=shared_resource_ids(user, ResourceType.FOOD))
         )
 
     def editable_by(self, user):

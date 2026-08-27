@@ -12,20 +12,10 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     RecipeNutrition,
-    RecipeVisibility,
     SavedMeal,
     SavedMealItem,
 )
 from recipes.services import nutrition as nutrition_service
-
-SHARING_UNAVAILABLE = "Le partage à des utilisateurs précis n’est pas encore disponible."
-
-
-def check_visibility(value: str) -> str:
-    """Refuse `specific_users` tant que `SharePermission` n'existe pas."""
-    if value == RecipeVisibility.SPECIFIC_USERS:
-        raise serializers.ValidationError(SHARING_UNAVAILABLE)
-    return value
 
 
 def resolve_food(user, food_id: int) -> Food:
@@ -139,9 +129,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             "ingredients",
         )
         read_only_fields = ("id",)
-
-    def validate_visibility(self, value: str) -> str:
-        return check_visibility(value)
 
     def validate_servings(self, value):
         if value <= 0:
@@ -267,9 +254,6 @@ class SavedMealWriteSerializer(serializers.ModelSerializer):
         model = SavedMeal
         fields = ("id", "name", "description", "visibility", "items")
         read_only_fields = ("id",)
-
-    def validate_visibility(self, value: str) -> str:
-        return check_visibility(value)
 
     def _write_items(self, saved_meal: SavedMeal, rows: list[dict]) -> None:
         user = self.context["request"].user

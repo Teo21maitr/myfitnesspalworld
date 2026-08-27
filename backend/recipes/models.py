@@ -24,8 +24,7 @@ class RecipeVisibility(models.TextChoices):
     l'énumération imposerait un `AlterField` sur une table déjà en production
     pour un gain purement cosmétique.
 
-    `SPECIFIC_USERS` existe dans le modèle mais n'est pas encore applicable :
-    il dépend de `SharePermission`, qui arrivera avec le partage.
+    `SPECIFIC_USERS` désigne les comptes nommés par une `SharePermission`.
     """
 
     PRIVATE = "private", "Privé"
@@ -47,8 +46,21 @@ class OwnedQuerySet(models.QuerySet):
         return self.filter(deleted_at__isnull=True)
 
     def visible_to(self, user):
-        """Ce qu'un utilisateur a le droit de consulter (spec 05 §7)."""
-        return self.active().filter(Q(owner=user) | Q(visibility=RecipeVisibility.APP_USERS))
+        """Ce qu'un utilisateur a le droit de consulter (spec 05 §7).
+
+        Le type de ressource vient du modèle : recettes et repas enregistrés
+        partagent ce queryset mais pas leurs identifiants, et confondre les
+        deux ferait d'un partage de recette un accès à un repas.
+        """
+        # Import tardif : voir la note du queryset des aliments.
+        from social.services.sharing import active_owner, shared_resource_ids
+
+        return self.active().filter(
+            Q(owner=user)
+            # Suspendre un compte rend ses partages inaccessibles (spec 05 §2).
+            | (Q(visibility=RecipeVisibility.APP_USERS) & active_owner())
+            | Q(pk__in=shared_resource_ids(user, self.model.SHARE_RESOURCE_TYPE))
+        )
 
     def editable_by(self, user):
         """Ce qu'un utilisateur peut modifier : uniquement ce qui lui appartient."""
@@ -61,6 +73,9 @@ class Recipe(models.Model):
     Suppression douce : les entrées de journal la référencent, et modifier ou
     supprimer une recette ne doit jamais toucher l'historique (spec 01 §14).
     """
+
+    #: Type de ressource sous lequel cette table se partage (spec 03 §9).
+    SHARE_RESOURCE_TYPE = "recipe"
 
     owner = models.ForeignKey(
         "accounts.User",
@@ -188,6 +203,8 @@ class RecipeNutrition(NutrientValues):
 
 class SavedMeal(models.Model):
     """Ensemble réutilisable d'aliments et de recettes déjà portionnés (spec 01 §13)."""
+
+    SHARE_RESOURCE_TYPE = "saved_meal"
 
     owner = models.ForeignKey(
         "accounts.User",

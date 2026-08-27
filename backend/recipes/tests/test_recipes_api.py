@@ -184,14 +184,16 @@ def test_un_aliment_invisible_est_refuse(auth_client, other_user):
     assert response.status_code == 400
 
 
-def test_le_partage_cible_est_encore_refuse(auth_client, chicken):
+def test_le_partage_cible_est_accepte(auth_client, chicken):
+    """La visibilité dit combien ; `SharePermission` dit qui (spec 01 §18)."""
     response = auth_client.post(
         LIST_URL,
         payload(chicken, visibility=RecipeVisibility.SPECIFIC_USERS),
         format="json",
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 201
+    assert Recipe.objects.get().visibility == RecipeVisibility.SPECIFIC_USERS
 
 
 # --- Suppression, duplication, favori ---------------------------------------
