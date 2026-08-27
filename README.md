@@ -5,12 +5,12 @@ PWA mobile-first de suivi alimentaire et nutritionnel, à usage privé.
 Ce dépôt est un monorepo : un backend Django/DRF, un frontend React/Vite, et le corpus de
 spécifications qui fait foi pour toutes les règles métier.
 
-> **État actuel : comptes, objectifs, aliments, journal, progression et recettes.** Un utilisateur
-> peut demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif
-> calorique calculé, rechercher parmi les 3 185 aliments de la table Ciqual, scanner un
+> **État actuel : comptes, objectifs, aliments, journal, progression, recettes et social.** Un
+> utilisateur peut demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir
+> un objectif calorique calculé, rechercher parmi les 3 185 aliments de la table Ciqual, scanner un
 > code-barres, tenir son journal alimentaire, copier une journée vers d'autres dates, suivre son
-> poids et ses mensurations, composer des recettes et des repas enregistrés. Le planner, la liste
-> de courses, le social et l'IA restent à faire.
+> poids et ses mensurations, composer des recettes et des repas enregistrés, se lier d'amitié et
+> partager. Le planner, la liste de courses, les rapports et l'IA restent à faire.
 
 ## Sommaire
 
@@ -28,6 +28,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Accueil et copie](#accueil-et-copie)
 - [Progression](#progression)
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
+- [Amis et partage](#amis-et-partage)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -151,6 +152,7 @@ Migrations existantes :
 | `progress/0002_bodymeasuremententry` | `BodyMeasurementEntry` |
 | `recipes/0001_initial` | `Recipe`, `RecipeIngredient`, `RecipeNutrition`, `SavedMeal`, `SavedMealItem` |
 | `diary/0003_diaryentry_recipe` | clé `recipe` sur `DiaryEntry` |
+| `social/0001_initial` | `FriendRequest`, `Friendship`, `SharePermission` |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -617,6 +619,75 @@ de l'ajout au journal, sans empêcher les autres d'y entrer.
 `FoodNutrition` et `RecipeNutrition` décrivent les mêmes vingt nutriments. Ils héritent d'un modèle
 abstrait `NutrientValues` : aucune table, aucune migration, et deux jeux de colonnes qui ne peuvent
 plus diverger — ce qui compte, puisque le journal recopie l'un ou l'autre dans le même snapshot.
+
+## Amis et partage
+
+Se chercher par nom d'utilisateur, s'inviter, accepter, puis partager aliments personnels,
+recettes, repas enregistrés, journal et progression (spec 01 §17 et §18). Le partage à des
+personnes précises suppose une amitié : c'est ce qui donne au retrait d'ami quelque chose à
+révoquer.
+
+Jusqu'à cette étape, quatre endroits du code portaient la même promesse — « `SPECIFIC_USERS`
+existe dans le modèle mais n'est pas encore applicable ». Elle est tenue.
+
+### Un partage ne survit jamais à sa raison d'être
+
+C'est le seul endroit de cette fonctionnalité où une erreur ne se voit pas. Un accès accordé
+légitimement puis conservé après la disparition de ce qui le justifiait ne lève aucune exception,
+n'apparaît nulle part à l'écran, et laisse lire des données privées. Trois chemins y mènent :
+
+- **le retrait d'ami** — la spec 01 §17 exige la révocation, donc `remove_friend()` supprime
+  l'amitié **et** les permissions dans la même transaction. Effacer la ligne d'amitié seule
+  laisserait l'ancien ami lire le journal comme avant ;
+- **la suspension** — la spec 05 §2 rend inaccessibles les partages d'un compte suspendu. Or
+  `IsActiveAccount` ne contrôle que l'appelant : les filtres de visibilité vérifient donc aussi
+  l'état du **propriétaire** ;
+- **la confusion de type** — `SharePermission` porte `resource_type` *et* `resource_id`. Les
+  identifiants sont propres à chaque table : la recette 42 et l'aliment 42 coexistent, et
+  n'interroger que l'identifiant ferait d'un partage de recette un accès à un aliment.
+
+Le contrôle qui tranche, sur la vraie base : deux comptes amis, trois partages, puis retrait.
+Il ne doit rester **aucune** `SharePermission` entre eux, et l'ex-ami perdre la recette, le
+journal et la progression d'un coup.
+
+### Des routes séparées, jamais un paramètre
+
+La consultation partagée vit sous `/shared/` et ne fait que lire. Ajouter un `user_id` aux
+endpoints du propriétaire aurait fait servir « mes données » ou « celles d'un autre » à la même
+route selon un paramètre — la façon canonique de fabriquer un IDOR, puisqu'il suffit d'oublier
+une vérification sur un chemin.
+
+Ces vues n'écrivent aucune logique : `build_day(user, day)` et `charts.series(user, …)` étaient
+déjà paramétrés par l'utilisateur. Elles vérifient le partage, puis appellent le service existant
+avec le propriétaire. Les totaux ne peuvent donc pas diverger selon qui regarde.
+
+Un partage absent répond **404 et non 403** : dire qu'une ressource existe mais reste fermée
+renseignerait déjà sur les données d'autrui.
+
+Côté interface, les écrans partagés ne proposent **aucune** action d'écriture. Le backend
+refuserait, mais offrir une action vouée au refus est déjà un défaut.
+
+### Ce que `resource_id` nul veut dire
+
+Le journal et la progression ne sont pas des lignes : ce sont l'ensemble des journées et des
+mesures de leur propriétaire (spec 05 §8). Leur partage porte donc un `resource_id` nul, et le
+fournir est refusé. Les deux partages sont **distincts** : ouvrir son journal n'ouvre pas sa
+progression.
+
+Les photos de progression ne figurent pas parmi les types partageables et ne doivent jamais y
+figurer (spec 01 §20).
+
+### Amitié bidirectionnelle
+
+`Friendship` stocke le couple sous forme canonique — le plus petit identifiant d'abord — avec une
+contrainte de base qui l'impose. Sans elle, A→B et B→A pourraient coexister et « sommes-nous
+amis ? » n'aurait pas de réponse unique.
+
+Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation.
+
+Une demande d'ami n'émet aucune notification : le modèle `Notification` (spec 01 §24) n'existe
+pas encore. L'entrée « Amis » de la barre latérale porte une pastille tant que des demandes
+attendent.
 
 ## Tests, lint et typecheck
 

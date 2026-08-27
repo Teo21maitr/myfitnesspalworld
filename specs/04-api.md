@@ -334,6 +334,18 @@ POST   /friend-requests/{id}/reject/
 DELETE /friends/{user_id}/
 ```
 
+`/users/search/` est partielle, insensible à la casse, et **ne porte jamais sur
+l'email** (spec 01 §1). Elle ne renvoie que des comptes actifs, jamais
+l'appelant, et n'expose de chaque compte que son nom d'utilisateur et son état
+civil.
+
+Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation :
+vouloir la même chose que l'autre, c'est être d'accord.
+
+`DELETE /friends/{user_id}/` n'est pas une simple suppression de ligne. Il
+**révoque les partages ciblés dans les deux sens** (spec 01 §17). Les partages
+`app_users` survivent : ils ne visaient personne en particulier.
+
 ## 13. Shares
 
 ```text
@@ -353,7 +365,53 @@ Payload :
 }
 ```
 
-Pour `app_users`, une visibilité globale suffit.
+Pour `app_users`, une visibilité globale suffit — et `target_user_id` doit alors
+être absent : un partage à tous ne vise personne.
+
+`resource_type` accepte `food`, `recipe`, `saved_meal`, `diary` et `progress`.
+Les photos de progression n'en font pas partie et ne doivent jamais y entrer
+(spec 01 §20).
+
+`resource_id` est **nul** pour `diary` et `progress` : le journal n'est pas une
+ligne mais l'ensemble des journées de son propriétaire (spec 05 §8). Le fournir
+est refusé en 400.
+
+Le couple `(resource_type, resource_id)` forme la clé de lecture. Les
+identifiants sont propres à chaque table : la recette 42 et l'aliment 42
+coexistent, et n'interroger que l'identifiant transformerait un partage de
+recette en accès à un aliment.
+
+Un partage `specific_user` vers quelqu'un qui n'est pas un ami est refusé : la
+spec 01 §17 lie les deux en rendant le retrait d'ami révocateur.
+
+```text
+GET /shares/received/
+```
+
+Ce qu'on a partagé avec l'appelant. Un partage dont le propriétaire n'est plus
+actif n'y figure pas (spec 05 §2).
+
+## 13 bis. Consultation partagée
+
+```text
+GET /shared/diary/?user_id=&date=
+GET /shared/progress/charts/?user_id=&metric=&from=&to=
+GET /shared/progress/weight/?user_id=
+```
+
+Routes **distinctes** de celles du propriétaire, et en lecture seule. Ajouter un
+`user_id` aux endpoints existants ferait servir « mes données » ou « celles d'un
+autre » à la même route selon un paramètre : c'est la façon canonique de
+fabriquer un IDOR, il suffit d'oublier une vérification sur un chemin.
+
+Elles passent par les mêmes services que le journal et la progression : les
+totaux ne peuvent pas diverger selon qui regarde.
+
+Un partage absent répond 404 et non 403 : dire qu'une ressource existe mais
+reste fermée renseignerait déjà sur les données d'autrui.
+
+Le partage du journal et celui de la progression sont **distincts** : ouvrir
+l'un n'ouvre pas l'autre.
 
 ## 14. Progress
 
