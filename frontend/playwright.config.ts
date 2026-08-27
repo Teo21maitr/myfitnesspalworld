@@ -26,6 +26,12 @@ const backendEnv = {
   CORS_ALLOWED_ORIGINS: `http://localhost:${FRONTEND_PORT}`,
   CSRF_TRUSTED_ORIGINS: `http://localhost:${FRONTEND_PORT},http://localhost:${BACKEND_PORT}`,
   EMAIL_BACKEND: 'django.core.mail.backends.locmem.EmailBackend',
+  // Meal Scan : fournisseur simulé, donc analyse déterministe et sans clé, et
+  // exécution synchrone, donc sans worker Celery à démarrer.
+  AI_ENABLED: 'True',
+  AI_PROVIDER: 'fake',
+  AI_MEAL_SCAN_MODEL: 'modele-simule',
+  CELERY_TASK_ALWAYS_EAGER: 'True',
 }
 
 export default defineConfig({
