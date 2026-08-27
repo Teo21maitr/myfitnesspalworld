@@ -201,6 +201,30 @@ POST   /recipes/{id}/add-to-diary/
 - servings ;
 - consumed_at facultatif.
 
+Il crée **une seule** entrée de type `recipe`, pas une par ingrédient : c'est le
+plat qui a été mangé. Elle emprunte la forme de l'ajout rapide — référence d'une
+portion, comptée en unités — car une portion se compte et ne se pèse pas. Son
+snapshot porte les valeurs **par portion**, et la quantité leur nombre.
+
+`GET /recipes/` et `GET /recipes/{id}/` renvoient la nutrition d'une portion,
+accompagnée de `incomplete_nutrients` : un nutriment qu'un ingrédient ne
+renseigne pas rend le total partiel, jamais nul (spec 01 §8).
+
+Le cache nutritionnel est recalculé à chaque écriture, et **aussi à la lecture
+lorsqu'un ingrédient a changé depuis** : sans cela, corriger un aliment
+laisserait les recettes qui l'emploient afficher un total faux jusqu'à leur
+prochaine modification.
+
+Une unité d'ingrédient que le backend ne sait pas convertir est refusée en 400
+plutôt qu'approximée (spec 01 §9).
+
+`DELETE` effectue une suppression douce : la recette disparaît des listes mais
+les entrées de journal qui la référencent restent valides.
+
+`duplicate` produit une copie indépendante, appartenant à l'appelant et **privée**
+même lorsque l'original était partagé : reprendre une recette pour soi ne doit
+pas la republier sans le dire.
+
 ## 7. Saved meals
 
 ```text
@@ -212,6 +236,16 @@ DELETE /saved-meals/{id}/
 POST   /saved-meals/{id}/duplicate/
 POST   /saved-meals/{id}/add-to-diary/
 ```
+
+Un élément porte un aliment ou une recette déjà portionné. `add-to-diary` **le
+déplie** en entrées de journal normales et indépendantes : un aliment devient
+une entrée d'aliment, une recette une entrée de recette. Chacune est snapshotée
+pour elle-même et plus rien ne les relie ensuite — modifier ou supprimer le
+repas enregistré ne touche pas ce qui a déjà été journalisé.
+
+La réponse renvoie `entries` et `skipped` : un élément dont la source a disparu
+est nommé plutôt qu'omis en silence, et n'empêche pas l'ajout des autres — même
+arbitrage que la copie d'une journée entière.
 
 ## 8. Meal plans
 

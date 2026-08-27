@@ -5,12 +5,12 @@ PWA mobile-first de suivi alimentaire et nutritionnel, à usage privé.
 Ce dépôt est un monorepo : un backend Django/DRF, un frontend React/Vite, et le corpus de
 spécifications qui fait foi pour toutes les règles métier.
 
-> **État actuel : comptes, objectifs, aliments, journal et progression.** Un utilisateur peut
-> demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif
+> **État actuel : comptes, objectifs, aliments, journal, progression et recettes.** Un utilisateur
+> peut demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif
 > calorique calculé, rechercher parmi les 3 185 aliments de la table Ciqual, scanner un
 > code-barres, tenir son journal alimentaire, copier une journée vers d'autres dates, suivre son
-> poids et ses mensurations. Les recettes, les repas enregistrés, le planner, la liste de courses,
-> le social et l'IA restent à faire.
+> poids et ses mensurations, composer des recettes et des repas enregistrés. Le planner, la liste
+> de courses, le social et l'IA restent à faire.
 
 ## Sommaire
 
@@ -27,6 +27,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Journal alimentaire](#journal-alimentaire)
 - [Accueil et copie](#accueil-et-copie)
 - [Progression](#progression)
+- [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -148,6 +149,8 @@ Migrations existantes :
 | `diary/0001_initial` | `MealType`, `DiaryDay`, `DiaryEntry` |
 | `diary/0002_alter_diaryentry_meal_type` | suppression de compte : `meal_type` en cascade |
 | `progress/0002_bodymeasuremententry` | `BodyMeasurementEntry` |
+| `recipes/0001_initial` | `Recipe`, `RecipeIngredient`, `RecipeNutrition`, `SavedMeal`, `SavedMealItem` |
+| `diary/0003_diaryentry_recipe` | clé `recipe` sur `DiaryEntry` |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -550,6 +553,70 @@ ressemblerait à une progression régulière. Aucun point n'est fabriqué pour l
 
 Les photos de progression (spec 01 §20) demandent le stockage objet, non configuré : elles ne
 figurent pas encore sur cet écran.
+
+## Recettes et repas enregistrés
+
+Une **recette** rassemble des ingrédients préparés ensemble puis divisés en portions
+(spec 01 §14). Un **repas enregistré** est un raccourci : un ensemble d'aliments et de recettes
+déjà portionnés (spec 01 §13). Les deux vivent dans l'app `recipes`.
+
+### Une entrée de recette emprunte la forme de l'ajout rapide
+
+Le snapshot du journal porte une quantité de référence et son unité — 100 g le plus souvent. Une
+portion de blanquette n'est ni des grammes ni des millilitres : elle se **compte**. L'entrée
+reprend donc exactement la forme de l'ajout rapide, déjà en place depuis l'étape 6 — référence
+d'une portion, unité `unit`, facteur figé à 1 — et son snapshot porte les valeurs **par portion**.
+Aucun nouveau type d'unité n'a été nécessaire.
+
+Une recette ajoutée au journal produit **une seule** entrée, pas une par ingrédient : c'est le plat
+qui a été mangé. Un repas enregistré, lui, **se déplie** en entrées normales et indépendantes, que
+l'on peut ensuite modifier ou supprimer une à une.
+
+### Le piège : la copie devait apprendre une troisième nature
+
+L'étape 7 avait posé la règle : une copie repart de la version **actuelle** de la source, l'entrée
+d'origine garde son snapshot. `copy_entry` l'appliquait en interrogeant l'aliment — et commençait
+par `if entry.food_id is None: return None`.
+
+Une entrée de recette n'a pas de `food_id`. Sans correction, elle serait tombée dans le repli prévu
+pour les sources disparues, et sa copie aurait porté l'**ancienne** version de la recette. Aucun
+test existant ne l'aurait vu : ils ne couvraient que les aliments et les ajouts rapides. L'écran
+aurait affiché un nombre plausible.
+
+Le contrôle qui tranche, sur la vraie base : journaliser deux portions d'une recette à 200 kcal,
+doubler ensuite un ingrédient, puis dupliquer l'entrée. La copie doit porter 800 kcal et
+l'originale 400. Un `copy_entry` ignorant les recettes en aurait donné 400 aux deux.
+
+### Nutrition d'une recette
+
+Le cache porte les vingt nutriments et non les seules macros : le snapshot du journal les exige
+tous. Il est calculé **par portion**, puisque c'est ce qui s'affiche et ce qui se recopie.
+
+La règle « inconnu n'est pas zéro » n'est pas réécrite ici : elle vit dans
+`nutrition/services/aggregation.py`, partagée avec le journal. Un nutriment qu'un seul ingrédient
+ne renseigne pas donne un total partiel, signalé par `incomplete_nutrients` et présenté comme tel
+à l'écran.
+
+Le cache peut se périmer **sans que la recette bouge** : c'est l'aliment qui change. La lecture
+compare donc la date du dernier changement d'ingrédient à celle du calcul, et recalcule si besoin.
+L'annotation est posée sur le queryset entier pour qu'une page de vingt-cinq recettes ne déclenche
+pas vingt-cinq agrégats.
+
+### Un ingrédient dont l'aliment disparaît
+
+`Food.owner` est en cascade : supprimer un compte efface ses aliments, y compris ceux qu'il avait
+partagés. Un ingrédient les référençant passe alors à `NULL` plutôt que de disparaître — son nom
+est conservé à l'ajout, la ligne reste lisible, et la nutrition de la recette devient partielle.
+La faire disparaître aurait allégé la recette en silence.
+
+Le même choix vaut pour un élément de repas enregistré : il est **nommé dans `skipped`** au moment
+de l'ajout au journal, sans empêcher les autres d'y entrer.
+
+### Champs nutritionnels partagés
+
+`FoodNutrition` et `RecipeNutrition` décrivent les mêmes vingt nutriments. Ils héritent d'un modèle
+abstrait `NutrientValues` : aucune table, aucune migration, et deux jeux de colonnes qui ne peuvent
+plus diverger — ce qui compte, puisque le journal recopie l'un ou l'autre dans le même snapshot.
 
 ## Tests, lint et typecheck
 
