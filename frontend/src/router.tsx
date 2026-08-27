@@ -35,6 +35,8 @@ import { FriendsPage } from '@/pages/friends-page'
 import { SharedDiaryPage } from '@/pages/shared/shared-diary-page'
 import { SharedProgressPage } from '@/pages/shared/shared-progress-page'
 import { SharesPage } from '@/pages/shares-page'
+import { ShoppingListPage } from '@/pages/shopping/shopping-list-page'
+import { ShoppingListsPage } from '@/pages/shopping/shopping-lists-page'
 
 export const routes = [
   {
@@ -94,6 +96,8 @@ export const routes = [
       { path: 'recettes/:id', element: <RecipeDetailPage /> },
       { path: 'recettes/:id/modifier', element: <EditRecipePage /> },
       { path: 'mes-repas', element: <SavedMealsPage /> },
+      { path: 'courses', element: <ShoppingListsPage /> },
+      { path: 'courses/:id', element: <ShoppingListPage /> },
       { path: 'progression', element: <ProgressPage /> },
       { path: 'amis', element: <FriendsPage /> },
       { path: 'amis/:userId/journal', element: <SharedDiaryPage /> },
