@@ -165,6 +165,31 @@ test('amitié, partage et révocation', async ({ browser }) => {
     await expect(bob.getByRole('link', { name: /Compote d’alice/ })).toHaveCount(0)
   })
 
+  await test.step('un partage à tous survit au retrait d’ami', async () => {
+    // Le cas signalé : partager à tous les comptes actifs, sans viser
+    // personne. Il ne dépend d'aucune amitié, et ne disparaît donc pas avec
+    // elle.
+    await alice.goto('/recettes/nouvelle')
+    await alice.getByLabel('Nom').fill('Recette publique')
+    await alice.getByLabel('Portions').fill('1')
+    await alice.getByLabel('Chercher un ingrédient').fill('abricot')
+    await alice
+      .getByRole('button', { name: /Abricot/ })
+      .first()
+      .click()
+    await alice.getByRole('button', { name: /^Ajouter Abricot/ }).click()
+    await alice.getByRole('button', { name: 'Créer la recette' }).click()
+    await expect(alice).toHaveURL(/\/recettes\/\d+$/)
+
+    await alice.getByRole('button', { name: /^Partager Recette publique/ }).click()
+    await alice.getByRole('button', { name: 'Ouvrir à tous les comptes actifs' }).click()
+    await expect(alice.getByText('Partagé.')).toBeVisible()
+
+    // Bob n'est plus son ami depuis l'étape précédente.
+    await bob.goto('/recettes')
+    await expect(bob.getByRole('link', { name: /Recette publique/ })).toBeVisible()
+  })
+
   await aliceContext.close()
   await bobContext.close()
 })

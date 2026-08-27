@@ -59,7 +59,9 @@ test('recette, portions et repas enregistré', async ({ page }) => {
   await test.step('composer une recette de deux portions', async () => {
     await page.goto('/recettes')
     await expect(page.getByRole('heading', { name: 'Recettes' })).toBeVisible()
-    await page.getByRole('link', { name: 'Créer une recette' }).click()
+    // Le bouton d'en-tête plutôt que le lien de l'état vide : la liste n'est
+    // pas forcément vide, une recette ouverte à tous les comptes y figure.
+    await page.getByRole('link', { name: 'Nouvelle' }).click()
 
     await page.getByLabel('Nom').fill('Compote maison')
     await page.getByLabel('Portions').fill('2')
