@@ -5,10 +5,12 @@ PWA mobile-first de suivi alimentaire et nutritionnel, à usage privé.
 Ce dépôt est un monorepo : un backend Django/DRF, un frontend React/Vite, et le corpus de
 spécifications qui fait foi pour toutes les règles métier.
 
-> **État actuel : comptes, objectifs et référentiel d'aliments.** Un utilisateur peut demander un
-> compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif calorique calculé,
-> puis rechercher parmi les 3 185 aliments de la table Ciqual et créer ses propres aliments. Le
-> journal, les recettes, le planner, la progression, le social et l'IA restent à faire.
+> **État actuel : comptes, objectifs, aliments, journal et progression.** Un utilisateur peut
+> demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir un objectif
+> calorique calculé, rechercher parmi les 3 185 aliments de la table Ciqual, scanner un
+> code-barres, tenir son journal alimentaire, copier une journée vers d'autres dates, suivre son
+> poids et ses mensurations. Les recettes, les repas enregistrés, le planner, la liste de courses,
+> le social et l'IA restent à faire.
 
 ## Sommaire
 
@@ -24,6 +26,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Produits de marque et code-barres](#produits-de-marque-et-code-barres)
 - [Journal alimentaire](#journal-alimentaire)
 - [Accueil et copie](#accueil-et-copie)
+- [Progression](#progression)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -142,6 +145,9 @@ Migrations existantes :
 | `nutrition/0002_food_…` | `Food`, `FoodNutrition`, `FoodPortion`, favoris, historique |
 | `nutrition/0003_fix_food_portion_unique_nulls` | unicité des portions officielles |
 | `progress/0001_initial` | `WeightEntry` |
+| `diary/0001_initial` | `MealType`, `DiaryDay`, `DiaryEntry` |
+| `diary/0002_alter_diaryentry_meal_type` | suppression de compte : `meal_type` en cascade |
+| `progress/0002_bodymeasuremententry` | `BodyMeasurementEntry` |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -501,6 +507,49 @@ mieux qu'un champ simulé.
 
 Chaque widget reste juste quand la donnée manque : pas d'objectif, aucune pesée, aucun poids
 cible. Ce sont les cas d'un compte neuf, pas des cas rares.
+
+## Progression
+
+`GET|POST /progress/weight/` et `GET|POST /progress/measurements/` tiennent l'historique, une
+entrée par date. Une seconde saisie sur une date existante **met à jour** au lieu d'échouer sur la
+contrainte d'unicité (spec 01 §19) ; l'interface l'annonce avant l'envoi, faute de quoi le
+remplacement passerait pour une donnée perdue.
+
+Les six mensurations sont facultatives une par une, mais une entrée qui n'en porte aucune est
+refusée : elle ne créerait qu'une ligne vide. Une mesure absente reste `null`, jamais `0`.
+
+### Une moyenne mobile calendaire, pas positionnelle
+
+C'est le seul calcul de cet écran dont une erreur ne se voit pas. Moyenner « les sept dernières
+pesées » paraît juste et ne l'est pas : on ne se pèse pas tous les jours, et pour qui se pèse une
+fois par semaine cette moyenne couvre **sept semaines**. Elle lisserait un trimestre en le
+présentant comme une tendance hebdomadaire, sans que rien ne le signale.
+
+La fenêtre porte donc sur les mesures dont la date tombe dans `[d - 6 jours, d]`, quel qu'en soit
+le nombre. Sur des pesées à J-30, J-25, J-3 et J-1, chaque point vaut sa propre mesure ou presque —
+une fenêtre positionnelle afficherait 80,83 kg à J-3 là où la bonne réponse est 79,00.
+
+Le lissage remonte au-delà du début de la période demandée : sans ce recul, la moyenne d'une même
+date changerait selon qu'on regarde trente ou quatre-vingt-dix jours.
+
+### La courbe
+
+`GET /progress/charts/?from=&to=&metric=` renvoie la série entière de l'intervalle. Endpoint
+distinct de `/progress/weight/`, qui est **paginé à 25** : trois mois de pesées quotidiennes
+dépassent la première page, et une courbe bâtie dessus serait tronquée sans le dire. La période
+vaut 90 jours par défaut et ne peut excéder deux ans, pour que la réponse reste finie.
+
+`metric` accepte `weight`, `waist`, `hips`, `chest`, `arm`, `thigh` et `body_fat`. Seul le poids
+porte une cible, reprise du profil. `trend_per_week` est une régression linéaire sur les mesures
+réelles — la calculer sur la moyenne mobile surpondérerait les périodes de pesée dense — et vaut
+`null` sous deux points : `0` affirmerait une stagnation constatée.
+
+Le graphique est un SVG écrit à la main, sans dépendance. Son axe des abscisses est **temporel** :
+un axe ordinal ferait paraître identiques deux jours et trois semaines, et un trou de vacances
+ressemblerait à une progression régulière. Aucun point n'est fabriqué pour les jours sans mesure.
+
+Les photos de progression (spec 01 §20) demandent le stockage objet, non configuré : elles ne
+figurent pas encore sur cet écran.
 
 ## Tests, lint et typecheck
 

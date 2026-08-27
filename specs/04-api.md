@@ -339,7 +339,43 @@ DELETE /progress/measurements/{id}/
 GET    /progress/charts/?from=...&to=...&metric=weight
 ```
 
-`charts` calcule la moyenne mobile côté backend.
+`POST /progress/measurements/` suit la même règle que la pesée : une entrée par
+date, une seconde saisie mettant à jour la précédente. Les six mesures sont
+facultatives, mais une entrée qui n'en porte aucune est refusée en 400 ; seules
+les mesures présentes dans le corps sont remplacées.
+
+`charts` calcule la moyenne mobile côté backend, sur une fenêtre **calendaire**
+de sept jours : les mesures dont la date tombe dans `[d - 6 jours, d]`. Une
+fenêtre portant sur les sept dernières mesures couvrirait sept semaines pour qui
+se pèse une fois par semaine. Le lissage remonte avant `from`, sans quoi la
+moyenne d'une même date dépendrait de la période demandée.
+
+`metric` accepte `weight`, `waist`, `hips`, `chest`, `arm`, `thigh` et
+`body_fat` ; `weight` par défaut. Seul le poids porte une cible, reprise du
+profil. `trend_per_week` est une régression linéaire sur les mesures réelles,
+`null` sous deux points.
+
+La période couvre les 90 derniers jours par défaut et ne peut excéder deux ans.
+Contrairement à `/progress/weight/`, paginé à 25, cet endpoint renvoie la série
+entière de l'intervalle : une courbe bâtie sur une page serait tronquée sans le
+dire.
+
+```json
+{
+  "metric": "weight",
+  "unit": "kg",
+  "from": "2026-05-29",
+  "to": "2026-08-26",
+  "points": [
+    { "date": "2026-08-26", "value": "78.00", "moving_average": "79.00" }
+  ],
+  "target": "70.00",
+  "trend_per_week": "-0.35"
+}
+```
+
+Aucun point n'est produit pour les jours sans mesure : interpoler fabriquerait
+des valeurs jamais relevées.
 
 ## 15. Progress photos
 
