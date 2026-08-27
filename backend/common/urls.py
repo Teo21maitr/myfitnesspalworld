@@ -7,6 +7,13 @@ from diary.urls import dashboard_patterns, diary_patterns, meal_type_patterns
 from nutrition.urls import barcode_patterns, food_patterns, nutrition_profile_patterns
 from progress.urls import progress_patterns
 from recipes.urls import recipe_patterns, saved_meal_patterns
+from social.urls import (
+    friend_patterns,
+    friend_request_patterns,
+    share_patterns,
+    shared_patterns,
+    user_patterns,
+)
 
 from .views import HealthView
 
@@ -28,4 +35,9 @@ urlpatterns = [
     path("progress/", include((progress_patterns, "progress"))),
     path("recipes/", include((recipe_patterns, "recipes"))),
     path("saved-meals/", include((saved_meal_patterns, "saved-meals"))),
+    path("users/", include((user_patterns, "users"))),
+    path("friends/", include((friend_patterns, "friends"))),
+    path("friend-requests/", include((friend_request_patterns, "friend-requests"))),
+    path("shares/", include((share_patterns, "shares"))),
+    path("shared/", include((shared_patterns, "shared"))),
 ]
