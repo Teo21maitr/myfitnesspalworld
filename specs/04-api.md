@@ -317,9 +317,35 @@ DELETE /shopping-lists/{id}/items/{item_id}/
 
 `generate` peut recevoir :
 
-- `meal_plan_id`
+- `shopping_list_id` facultatif
 - `recipe_ids[]`
 - `dates[]`
+
+Sans `shopping_list_id`, une liste est créée ; avec lui, elle est complétée et
+les articles compatibles fusionnent avec ceux déjà présents.
+
+`meal_plan_id` n'est pas encore accepté : le planner n'existe pas, et un
+paramètre qui ne ferait rien vaudrait moins qu'une erreur claire.
+
+**Regrouper n'est pas additionner.** Les quantités portent des unités : 150 g et
+1 kg du même aliment donnent 1150 g, pas 151. Chaque quantité est convertie dans
+l'unité de référence de son aliment avant la somme, et **ce qui ne se convertit
+pas reste une ligne séparée** plutôt qu'approximé (spec 01 §9) — millilitres
+contre grammes, ou portion supprimée entre-temps.
+
+Une entrée de recette dans une journée verse les **ingrédients** de la recette,
+mis à l'échelle des portions consommées : on n'achète pas des portions de
+blanquette. Un ajout rapide n'apporte rien, n'ayant pas d'aliment.
+
+`quantity` et `unit_label` peuvent être nuls : « du sel » est un article
+valable, et inventer « 1 unité » serait une donnée qu'on n'a pas (spec 01 §8).
+
+Un article ajouté à la main ne fusionne jamais automatiquement : son auteur l'a
+écrit tel quel.
+
+`DELETE` d'une liste est une suppression franche — pas d'historique automatique
+après suppression (spec 01 §16). Une liste reçue se lit ; cocher un article y
+est refusé.
 
 ## 12. Friends
 

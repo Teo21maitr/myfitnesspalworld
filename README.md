@@ -5,12 +5,13 @@ PWA mobile-first de suivi alimentaire et nutritionnel, à usage privé.
 Ce dépôt est un monorepo : un backend Django/DRF, un frontend React/Vite, et le corpus de
 spécifications qui fait foi pour toutes les règles métier.
 
-> **État actuel : comptes, objectifs, aliments, journal, progression, recettes et social.** Un
-> utilisateur peut demander un compte, être accepté, se connecter, dérouler l'onboarding, obtenir
-> un objectif calorique calculé, rechercher parmi les 3 185 aliments de la table Ciqual, scanner un
-> code-barres, tenir son journal alimentaire, copier une journée vers d'autres dates, suivre son
-> poids et ses mensurations, composer des recettes et des repas enregistrés, se lier d'amitié et
-> partager. Le planner, la liste de courses, les rapports et l'IA restent à faire.
+> **État actuel : comptes, objectifs, aliments, journal, progression, recettes, social et
+> courses.** Un utilisateur peut demander un compte, être accepté, se connecter, dérouler
+> l'onboarding, obtenir un objectif calorique calculé, rechercher parmi les 3 185 aliments de la
+> table Ciqual, scanner un code-barres, tenir son journal alimentaire, copier une journée vers
+> d'autres dates, suivre son poids et ses mensurations, composer des recettes et des repas
+> enregistrés, se lier d'amitié, partager, et générer sa liste de courses. Le planner, les
+> rapports, l'analyse et l'IA restent à faire.
 
 ## Sommaire
 
@@ -29,6 +30,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Progression](#progression)
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
+- [Liste de courses](#liste-de-courses)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -153,6 +155,8 @@ Migrations existantes :
 | `recipes/0001_initial` | `Recipe`, `RecipeIngredient`, `RecipeNutrition`, `SavedMeal`, `SavedMealItem` |
 | `diary/0003_diaryentry_recipe` | clé `recipe` sur `DiaryEntry` |
 | `social/0001_initial` | `FriendRequest`, `Friendship`, `SharePermission` |
+| `planning/0001_initial` | `ShoppingList`, `ShoppingListItem` |
+| `social/0002_alter_sharepermission_resource_type` | la liste de courses devient partageable |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -688,6 +692,54 @@ Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation.
 Une demande d'ami n'émet aucune notification : le modèle `Notification` (spec 01 §24) n'existe
 pas encore. L'entrée « Amis » de la barre latérale porte une pastille tant que des demandes
 attendent.
+
+## Liste de courses
+
+Générée depuis des recettes ou des journées, complétée à la main, cochée en faisant les courses,
+et partageable comme le reste (spec 01 §16).
+
+### Regrouper n'est pas additionner
+
+« 150 g poulet + 300 g poulet = 450 g poulet » se lit comme une addition. Ce n'en est pas une :
+les quantités portent des unités. 150 g et 1 kg du même poulet se regroupent bien, mais leur somme
+vaut **1150 g, pas 151** — un nombre plausible, faux d'un facteur sept, et qu'aucun écran ne
+signale. On s'en aperçoit devant l'étal.
+
+Chaque quantité est donc convertie dans l'unité de référence de son aliment, par le même
+`resolve_factor()` qui sert au journal, avant d'être sommée.
+
+**Et ce qui ne se convertit pas ne se regroupe pas.** Des millilitres sur un aliment mesuré en
+grammes, une portion supprimée entre-temps : la ligne reste séparée plutôt qu'approximée
+(spec 01 §9). Deux lignes valent mieux qu'une somme inventée.
+
+Un article ajouté à la main ne fusionne jamais automatiquement : son auteur l'a écrit tel quel, et
+l'absorber dans une quantité générée le ferait disparaître de sa liste.
+
+### Ce qu'une journée verse au panier
+
+Une entrée d'aliment donne son aliment. Une entrée de **recette** est dépliée en ingrédients, mis
+à l'échelle des portions consommées : deux portions d'une recette qui en fait quatre versent la
+moitié de ses ingrédients. On n'achète pas des portions de blanquette.
+
+Un ajout rapide n'apporte rien : il n'a pas d'aliment à mettre au panier.
+
+### Une liste est un brouillon
+
+Sa suppression est franche, sans suppression douce : rien ne la référence, et la spec 01 §16 exclut
+tout historique automatique. C'est le seul modèle du projet qui se supprime vraiment.
+
+`quantity` et `unit_label` sont nullables : « du sel » est un article valable, et inventer
+« 1 unité » serait une donnée qu'on n'a pas.
+
+### La règle de visibilité, écrite une fois
+
+La liste de courses aurait été la quatrième copie du même filtre — à soi, ouvert à tous par un
+propriétaire actif, ou partagé nommément. Quatre copies d'une clause de sécurité finissent par
+diverger sans que rien ne le signale. La règle vit désormais dans `visibility_filter()`, que les
+aliments, les recettes, les repas enregistrés et les listes appellent tous.
+
+L'extraction n'a demandé aucune modification des tests existants — c'est ce qui la distingue d'une
+réécriture.
 
 ## Tests, lint et typecheck
 
