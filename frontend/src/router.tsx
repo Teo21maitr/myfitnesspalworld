@@ -25,6 +25,7 @@ import { HomePage } from '@/pages/home-page'
 import { JournalPage } from '@/pages/journal-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import { OnboardingPage } from '@/pages/onboarding-page'
+import { ProgressPage } from '@/pages/progress-page'
 
 export const routes = [
   {
@@ -79,6 +80,7 @@ export const routes = [
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
       { path: 'ajout-rapide', element: <QuickAddPage /> },
+      { path: 'progression', element: <ProgressPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
       { path: 'compte', element: <AccountPage /> },
       { path: '*', element: <NotFoundPage /> },
