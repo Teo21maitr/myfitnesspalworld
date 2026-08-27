@@ -11,9 +11,12 @@ from nutrition.models import (
     FoodNutrition,
     FoodPortion,
     FoodSource,
+    FoodVisibility,
     UnitType,
 )
 from nutrition.services.quantities import available_units as food_available_units
+from social.models import ResourceType
+from social.services.sharing import revoke_resource
 
 NUTRITION_FIELDS = (
     "energy_kcal",
@@ -241,6 +244,11 @@ class FoodWriteSerializer(serializers.ModelSerializer):
         for field, value in validated_data.items():
             setattr(instance, field, value)
         instance.save()
+
+        if instance.visibility == FoodVisibility.PRIVATE:
+            # Déclarer « privé » referme les partages déjà accordés : les deux
+            # ne peuvent pas dire le contraire l'un de l'autre.
+            revoke_resource(ResourceType.FOOD, instance.pk)
 
         if nutrition_data is not None:
             nutrition, _ = FoodNutrition.objects.get_or_create(food=instance)

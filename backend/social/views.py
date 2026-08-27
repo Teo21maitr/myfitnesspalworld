@@ -144,9 +144,18 @@ class ShareListCreateView(generics.ListCreateAPIView):
     permission_classes = ACTIVE_USER
 
     def get_queryset(self):
-        return SharePermission.objects.filter(owner=self.request.user).select_related(
-            "owner", "target_user"
-        )
+        return SharePermission.objects.filter(owner=self.request.user)
+
+    def perform_destroy(self, instance: SharePermission) -> None:
+        resource_type, resource_id = instance.resource_type, instance.resource_id
+        instance.delete()
+
+        # Sans ce recalcul, la colonne continuerait d'annoncer « ouvert à
+        # tous » alors que le partage vient d'être retiré.
+        if sharing.requires_resource_id(resource_type):
+            sharing.sync_visibility(self.request.user, resource_type, resource_id).select_related(
+                "owner", "target_user"
+            )
 
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.get_queryset())
@@ -169,6 +178,10 @@ class ShareListCreateView(generics.ListCreateAPIView):
             resource_id=data.get("resource_id"),
             defaults={"visibility_type": data["visibility"]},
         )
+
+        if sharing.requires_resource_id(data["resource_type"]):
+            # La fiche de la ressource doit annoncer ce qui vient d'être fait.
+            sharing.sync_visibility(request.user, data["resource_type"], data["resource_id"])
 
         return Response(
             SharePermissionSerializer(
@@ -207,6 +220,15 @@ class ShareDetailView(generics.DestroyAPIView):
 
     def get_queryset(self):
         return SharePermission.objects.filter(owner=self.request.user)
+
+    def perform_destroy(self, instance: SharePermission) -> None:
+        resource_type, resource_id = instance.resource_type, instance.resource_id
+        instance.delete()
+
+        # Sans ce recalcul, la colonne continuerait d'annoncer « ouvert à
+        # tous » alors que le partage vient d'être retiré.
+        if sharing.requires_resource_id(resource_type):
+            sharing.sync_visibility(self.request.user, resource_type, resource_id)
 
 
 def shared_owner(request: Request, resource_type: str) -> User:

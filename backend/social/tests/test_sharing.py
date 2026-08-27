@@ -11,7 +11,7 @@ import pytest
 from django.urls import reverse
 
 from accounts.models import UserStatus
-from nutrition.models import Food, FoodSource, FoodVisibility
+from nutrition.models import Food, FoodNutrition, FoodSource, FoodVisibility
 from recipes.models import Recipe, RecipeVisibility, SavedMeal
 from social.models import ResourceType, SharePermission, VisibilityType
 from social.services import friends as friends_service
@@ -88,13 +88,234 @@ def test_un_partage_global_survit_au_retrait_dami(alice, bob, recipe):
     """Il ne visait personne en particulier : l'amitié n'était pas son fondement."""
     befriend(alice, bob)
     share(alice, None, ResourceType.RECIPE, recipe.id)
-    recipe.visibility = RecipeVisibility.APP_USERS
-    recipe.save()
 
     friends_service.remove_friend(user=alice, other=bob)
 
     assert SharePermission.objects.count() == 1
     assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_un_partage_a_tous_rend_la_recette_visible(alice, bob, recipe):
+    """Sans amitié ni visibilité posée à la main : le partage suffit.
+
+    Le cas « tous les comptes actifs » s'appuyait sur la colonne `visibility`
+    de la ressource, que l'endpoint de partage ne touche pas : créer le
+    partage ne rendait rien visible.
+    """
+    share(alice, None, ResourceType.RECIPE, recipe.id)
+
+    assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_un_partage_a_tous_passe_par_lapi(alice, bob, recipe):
+    response = client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "recipe", "resource_id": recipe.id, "visibility": "app_users"},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_revoquer_un_partage_a_tous_referme_la_recette(alice, bob, recipe):
+    permission = share(alice, None, ResourceType.RECIPE, recipe.id)
+
+    permission.delete()
+
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_un_partage_a_tous_vaut_aussi_pour_un_aliment(alice, bob):
+    food = Food.objects.create(
+        source=FoodSource.USER,
+        owner=alice,
+        name="Granola",
+        reference_amount=100,
+        visibility=FoodVisibility.PRIVATE,
+    )
+
+    share(alice, None, ResourceType.FOOD, food.id)
+
+    assert Food.objects.visible_to(bob).filter(pk=food.pk).exists()
+
+
+def test_partager_aligne_la_visibilite_de_la_ressource(alice, bob, recipe):
+    """La fiche doit annoncer ce que le partage vient de faire."""
+    befriend(alice, bob)
+    recipe.visibility = RecipeVisibility.PRIVATE
+    recipe.save()
+
+    client_for(alice).post(
+        SHARES_URL,
+        {
+            "resource_type": "recipe",
+            "resource_id": recipe.id,
+            "visibility": "specific_user",
+            "target_user_id": bob.id,
+        },
+        format="json",
+    )
+
+    recipe.refresh_from_db()
+    assert recipe.visibility == RecipeVisibility.SPECIFIC_USERS
+
+
+def test_partager_a_tous_aligne_aussi_la_visibilite(alice, bob, recipe):
+    recipe.visibility = RecipeVisibility.PRIVATE
+    recipe.save()
+
+    client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "recipe", "resource_id": recipe.id, "visibility": "app_users"},
+        format="json",
+    )
+
+    recipe.refresh_from_db()
+    assert recipe.visibility == RecipeVisibility.APP_USERS
+
+
+def test_revoquer_un_partage_a_tous_referme_vraiment_la_ressource(alice, bob, recipe):
+    """La colonne étant dérivée, la révocation la ramène à « privé ».
+
+    Poser la colonne d'après l'intention du moment aurait laissé la ressource
+    ouverte après le retrait du partage.
+    """
+    created = client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "recipe", "resource_id": recipe.id, "visibility": "app_users"},
+        format="json",
+    )
+    assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+    client_for(alice).delete(reverse("api-v1:shares:detail", args=[created.data["id"]]))
+
+    recipe.refresh_from_db()
+    assert recipe.visibility == RecipeVisibility.PRIVATE
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_retirer_un_partage_cible_parmi_deux_garde_la_ressource_ouverte(alice, bob, carol, recipe):
+    """La colonne suit ce qui reste, pas ce qu'on vient d'enlever."""
+    befriend(alice, bob)
+    befriend(alice, carol)
+    client = client_for(alice)
+
+    first = client.post(
+        SHARES_URL,
+        {
+            "resource_type": "recipe",
+            "resource_id": recipe.id,
+            "visibility": "specific_user",
+            "target_user_id": bob.id,
+        },
+        format="json",
+    )
+    client.post(
+        SHARES_URL,
+        {
+            "resource_type": "recipe",
+            "resource_id": recipe.id,
+            "visibility": "specific_user",
+            "target_user_id": carol.id,
+        },
+        format="json",
+    )
+
+    client.delete(reverse("api-v1:shares:detail", args=[first.data["id"]]))
+
+    recipe.refresh_from_db()
+    assert recipe.visibility == RecipeVisibility.SPECIFIC_USERS
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+    assert Recipe.objects.visible_to(carol).filter(pk=recipe.pk).exists()
+
+
+# --- « Privé » referme tout --------------------------------------------------
+
+
+def test_repasser_une_recette_en_prive_revoque_ses_partages(auth_client, active_user, bob):
+    """La colonne et les permissions ne peuvent pas se contredire.
+
+    Sans cette règle, déclarer « privé » laisserait la ressource ouverte : la
+    direction où l'erreur coûte le plus cher.
+    """
+    recipe = Recipe.objects.create(
+        owner=active_user,
+        name="À refermer",
+        servings=Decimal("1"),
+        visibility=RecipeVisibility.APP_USERS,
+    )
+    share(active_user, None, ResourceType.RECIPE, recipe.id)
+    assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+    response = auth_client.patch(
+        reverse("api-v1:recipes:detail", args=[recipe.pk]),
+        {"visibility": RecipeVisibility.PRIVATE},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert SharePermission.objects.filter(resource_id=recipe.id).count() == 0
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_repasser_un_aliment_en_prive_revoque_ses_partages(auth_client, active_user, bob):
+    food = Food.objects.create(
+        source=FoodSource.USER,
+        owner=active_user,
+        name="À refermer",
+        reference_amount=100,
+        visibility=FoodVisibility.APP_USERS,
+    )
+    FoodNutrition.objects.create(food=food, energy_kcal=Decimal("100"))
+    share(active_user, None, ResourceType.FOOD, food.id)
+    assert Food.objects.visible_to(bob).filter(pk=food.pk).exists()
+
+    response = auth_client.patch(
+        reverse("api-v1:foods:detail", args=[food.pk]),
+        {"visibility": FoodVisibility.PRIVATE},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert not Food.objects.visible_to(bob).filter(pk=food.pk).exists()
+
+
+def test_repasser_un_repas_en_prive_revoque_ses_partages(auth_client, active_user, bob):
+    meal = SavedMeal.objects.create(
+        owner=active_user, name="À refermer", visibility=RecipeVisibility.APP_USERS
+    )
+    share(active_user, None, ResourceType.SAVED_MEAL, meal.id)
+    assert SavedMeal.objects.visible_to(bob).filter(pk=meal.pk).exists()
+
+    response = auth_client.patch(
+        reverse("api-v1:saved-meals:detail", args=[meal.pk]),
+        {"visibility": RecipeVisibility.PRIVATE},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert not SavedMeal.objects.visible_to(bob).filter(pk=meal.pk).exists()
+
+
+def test_un_partage_cible_disparait_aussi_avec_le_retour_en_prive(auth_client, active_user, bob):
+    """« Privé » veut dire personne, pas « personne sauf ceux d'avant »."""
+    befriend(active_user, bob)
+    recipe = Recipe.objects.create(
+        owner=active_user,
+        name="À refermer",
+        servings=Decimal("1"),
+        visibility=RecipeVisibility.SPECIFIC_USERS,
+    )
+    share(active_user, bob, ResourceType.RECIPE, recipe.id)
+
+    auth_client.patch(
+        reverse("api-v1:recipes:detail", args=[recipe.pk]),
+        {"visibility": RecipeVisibility.PRIVATE},
+        format="json",
+    )
+
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
 
 
 # --- Suspension --------------------------------------------------------------
@@ -116,6 +337,16 @@ def test_suspendre_un_compte_rend_ses_partages_inaccessibles(alice, bob, recipe)
 def test_suspendre_ferme_aussi_les_partages_globaux(alice, bob, recipe):
     recipe.visibility = RecipeVisibility.APP_USERS
     recipe.save()
+    assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+    alice.status = UserStatus.SUSPENDED
+    alice.save()
+
+    assert not Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
+
+
+def test_suspendre_ferme_un_partage_a_tous_porte_par_une_ligne(alice, bob, recipe):
+    share(alice, None, ResourceType.RECIPE, recipe.id)
     assert Recipe.objects.visible_to(bob).filter(pk=recipe.pk).exists()
 
     alice.status = UserStatus.SUSPENDED

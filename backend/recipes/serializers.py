@@ -12,10 +12,13 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     RecipeNutrition,
+    RecipeVisibility,
     SavedMeal,
     SavedMealItem,
 )
 from recipes.services import nutrition as nutrition_service
+from social.models import ResourceType
+from social.services.sharing import revoke_resource
 
 
 def resolve_food(user, food_id: int) -> Food:
@@ -170,6 +173,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         if rows is not None:
             self._write_ingredients(instance, rows)
 
+        if instance.visibility == RecipeVisibility.PRIVATE:
+            # Déclarer « privé » referme les partages déjà accordés.
+            revoke_resource(ResourceType.RECIPE, instance.pk)
+
         # Le nombre de portions a pu changer sans que la composition bouge.
         nutrition_service.refresh(instance)
         return instance
@@ -306,6 +313,9 @@ class SavedMealWriteSerializer(serializers.ModelSerializer):
 
         if rows is not None:
             self._write_items(instance, rows)
+
+        if instance.visibility == RecipeVisibility.PRIVATE:
+            revoke_resource(ResourceType.SAVED_MEAL, instance.pk)
 
         return instance
 

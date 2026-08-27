@@ -49,19 +49,29 @@ def active_owner(prefix: str = "owner") -> Q:
 
 
 def shared_resource_ids(user: User, resource_type: str):
-    """Identifiants d'un type que `user` peut lire par partage ciblé.
+    """Identifiants d'un type que `user` peut lire par partage.
+
+    Les **deux** portées comptent : un partage nommé sur lui, et un partage
+    ouvert à tous les comptes actifs. Ne retenir que le premier laissait le
+    second sans effet — la ressource restait invisible bien que le partage
+    existe, puisque rien ne touchait sa colonne `visibility`.
 
     Renvoie une sous-requête, pour que les filtres de visibilité restent une
     seule requête. Le **type** fait partie du filtre : les identifiants sont
     propres à chaque table, et n'interroger que `resource_id` transformerait un
     partage de recette en accès à un aliment portant le même numéro.
     """
-    return SharePermission.objects.filter(
-        target_user=user,
-        resource_type=resource_type,
-        visibility_type=VisibilityType.SPECIFIC_USER,
-        owner__status=UserStatus.ACTIVE,
-    ).values("resource_id")
+    return (
+        SharePermission.objects.filter(
+            resource_type=resource_type,
+            owner__status=UserStatus.ACTIVE,
+        )
+        .filter(
+            Q(target_user=user, visibility_type=VisibilityType.SPECIFIC_USER)
+            | Q(visibility_type=VisibilityType.APP_USERS)
+        )
+        .values("resource_id")
+    )
 
 
 def can_read(user: User, owner: User, resource_type: str, resource_id: int | None = None) -> bool:
@@ -91,6 +101,22 @@ def can_read(user: User, owner: User, resource_type: str, resource_id: int | Non
 
 
 @transaction.atomic
+def revoke_resource(resource_type: str, resource_id: int) -> int:
+    """Retire tous les partages d'une ressource redevenue privée.
+
+    Sans cela, « privé » ne voudrait rien dire : la colonne `visibility` de la
+    ressource et les permissions sont indépendantes, et l'une pourrait annoncer
+    « personne » pendant que les autres laissent lire. C'est la direction où
+    l'erreur coûte le plus cher.
+    """
+    deleted, _ = SharePermission.objects.filter(
+        resource_type=resource_type, resource_id=resource_id
+    ).delete()
+
+    return deleted
+
+
+@transaction.atomic
 def revoke_between(first: User, second: User) -> int:
     """Supprime les partages ciblés entre deux comptes, dans les deux sens.
 
@@ -105,6 +131,39 @@ def revoke_between(first: User, second: User) -> int:
     )
 
     return deleted
+
+
+def sync_visibility(user: User, resource_type: str, resource_id: int) -> None:
+    """Recalcule la colonne `visibility` d'après les partages qui subsistent.
+
+    Les deux disent la même chose sous deux formes : la colonne résume la
+    portée, les permissions nomment les destinataires. La colonne est donc
+    **dérivée**, jamais posée d'après une intention ponctuelle — sinon révoquer
+    un partage la laisserait annoncer « ouvert à tous » alors que plus rien ne
+    l'est.
+    """
+    from nutrition.models import FoodVisibility
+    from recipes.models import RecipeVisibility
+
+    resource = resolve_owned_resource(user, resource_type, resource_id)
+    if resource is None:
+        return
+
+    remaining = SharePermission.objects.filter(
+        owner=user, resource_type=resource_type, resource_id=resource_id
+    )
+    choices = FoodVisibility if resource_type == ResourceType.FOOD else RecipeVisibility
+
+    if remaining.filter(visibility_type=VisibilityType.APP_USERS).exists():
+        wanted = choices.APP_USERS
+    elif remaining.exists():
+        wanted = choices.SPECIFIC_USERS
+    else:
+        wanted = choices.PRIVATE
+
+    if resource.visibility != wanted:
+        resource.visibility = wanted
+        resource.save(update_fields=["visibility", "updated_at"])
 
 
 def requires_resource_id(resource_type: str) -> bool:
