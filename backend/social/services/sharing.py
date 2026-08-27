@@ -74,6 +74,29 @@ def shared_resource_ids(user: User, resource_type: str):
     )
 
 
+#: Valeur de la colonne `visibility` signifiant « ouvert à tous les comptes
+#: actifs ». Les trois énumérations métier — aliments, recettes, listes — la
+#: partagent : c'est la chaîne qui compte ici, pas l'énumération d'origine.
+OPEN_TO_ALL = "app_users"
+
+
+def visibility_filter(user: User, resource_type: str) -> Q:
+    """Ce qu'un utilisateur a le droit de consulter, en une clause.
+
+    À soi, ouvert à tous par un propriétaire actif, ou partagé nommément. La
+    règle est la même pour les aliments, les recettes, les repas enregistrés et
+    les listes de courses : l'écrire une fois par app en ferait quatre copies
+    d'un filtre de sécurité, exactement le genre de duplication qui finit par
+    diverger sans que rien ne le signale.
+    """
+    return (
+        Q(owner=user)
+        # Suspendre un compte rend ses partages inaccessibles (spec 05 §2).
+        | (Q(visibility=OPEN_TO_ALL) & active_owner())
+        | Q(pk__in=shared_resource_ids(user, resource_type))
+    )
+
+
 def can_read(user: User, owner: User, resource_type: str, resource_id: int | None = None) -> bool:
     """Autorisation de lecture, pour les ressources sans liste à filtrer.
 
@@ -177,6 +200,7 @@ def requires_resource_id(resource_type: str) -> bool:
 def resolve_owned_resource(user: User, resource_type: str, resource_id: int):
     """Ressource de ce type appartenant à l'appelant, ou `None`."""
     from nutrition.models import Food, FoodSource
+    from planning.models import ShoppingList
     from recipes.models import Recipe, SavedMeal
 
     if resource_type == ResourceType.FOOD:
@@ -190,6 +214,9 @@ def resolve_owned_resource(user: User, resource_type: str, resource_id: int):
     if resource_type == ResourceType.SAVED_MEAL:
         return SavedMeal.objects.editable_by(user).filter(pk=resource_id).first()
 
+    if resource_type == ResourceType.SHOPPING_LIST:
+        return ShoppingList.objects.editable_by(user).filter(pk=resource_id).first()
+
     return None
 
 
@@ -200,6 +227,7 @@ def describe(permissions) -> dict[tuple[str, int | None], str]:
     partage : le regroupement par type en fait trois au plus.
     """
     from nutrition.models import Food
+    from planning.models import ShoppingList
     from recipes.models import Recipe, SavedMeal
 
     wanted: dict[str, set[int]] = {}
@@ -211,6 +239,7 @@ def describe(permissions) -> dict[tuple[str, int | None], str]:
         ResourceType.FOOD: Food,
         ResourceType.RECIPE: Recipe,
         ResourceType.SAVED_MEAL: SavedMeal,
+        ResourceType.SHOPPING_LIST: ShoppingList,
     }
 
     names: dict[tuple[str, int | None], str] = {}

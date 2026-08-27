@@ -72,18 +72,14 @@ class FoodQuerySet(models.QuerySet):
         # Import tardif : `social` dépend des apps métier pour résoudre une
         # ressource, et l'importer au chargement des modèles créerait un cycle.
         from social.models import ResourceType
-        from social.services.sharing import active_owner, shared_resource_ids
+        from social.services.sharing import visibility_filter
 
         return self.active().filter(
-            # Sources globales : lisibles par tout compte actif.
+            # Sources globales : lisibles par tout compte actif. Le reste — ses
+            # propres aliments, ceux ouverts à tous, ceux partagés nommément —
+            # suit la règle commune.
             Q(source__in=[FoodSource.CIQUAL, FoodSource.OFF])
-            # Ses propres aliments, quelle que soit leur visibilité.
-            | Q(owner=user)
-            # Ceux que d'autres ont ouverts à tous les comptes actifs — sauf
-            # si leur propriétaire a été suspendu (spec 05 §2).
-            | (Q(visibility=FoodVisibility.APP_USERS) & active_owner())
-            # Ceux qu'on lui a partagés nommément.
-            | Q(pk__in=shared_resource_ids(user, ResourceType.FOOD))
+            | visibility_filter(user, ResourceType.FOOD)
         )
 
     def editable_by(self, user):

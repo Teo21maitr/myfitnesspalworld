@@ -26,6 +26,7 @@ class ResourceType(models.TextChoices):
     FOOD = "food", "Aliment personnel"
     RECIPE = "recipe", "Recette"
     SAVED_MEAL = "saved_meal", "Repas enregistré"
+    SHOPPING_LIST = "shopping_list", "Liste de courses"
     DIARY = "diary", "Journal"
     PROGRESS = "progress", "Progression"
 

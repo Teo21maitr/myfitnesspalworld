@@ -53,14 +53,9 @@ class OwnedQuerySet(models.QuerySet):
         deux ferait d'un partage de recette un accès à un repas.
         """
         # Import tardif : voir la note du queryset des aliments.
-        from social.services.sharing import active_owner, shared_resource_ids
+        from social.services.sharing import visibility_filter
 
-        return self.active().filter(
-            Q(owner=user)
-            # Suspendre un compte rend ses partages inaccessibles (spec 05 §2).
-            | (Q(visibility=RecipeVisibility.APP_USERS) & active_owner())
-            | Q(pk__in=shared_resource_ids(user, self.model.SHARE_RESOURCE_TYPE))
-        )
+        return self.active().filter(visibility_filter(user, self.model.SHARE_RESOURCE_TYPE))
 
     def editable_by(self, user):
         """Ce qu'un utilisateur peut modifier : uniquement ce qui lui appartient."""
