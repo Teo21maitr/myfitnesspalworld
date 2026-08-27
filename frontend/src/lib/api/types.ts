@@ -142,6 +142,41 @@ export interface WeightEntry {
   updated_at: string
 }
 
+/** Mensurations d'une date. Chaque mesure est facultative (spec 01 §19). */
+export interface BodyMeasurementEntry {
+  id: number
+  date: string
+  waist_cm: string | null
+  hips_cm: string | null
+  chest_cm: string | null
+  arm_cm: string | null
+  thigh_cm: string | null
+  body_fat_percent: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Métriques traçables par `GET /progress/charts/` (spec 04 §14). */
+export type ChartMetric = 'weight' | 'waist' | 'hips' | 'chest' | 'arm' | 'thigh' | 'body_fat'
+
+export interface ChartPoint {
+  date: string
+  value: string
+  /** Moyenne des mesures des sept derniers jours calendaires. */
+  moving_average: string
+}
+
+export interface ChartSeries {
+  metric: ChartMetric
+  unit: string
+  from: string
+  to: string
+  points: ChartPoint[]
+  target: string | null
+  trend_per_week: string | null
+}
+
 /** Réponse de `GET /profile/settings/`. */
 export interface UserSettings {
   language: string

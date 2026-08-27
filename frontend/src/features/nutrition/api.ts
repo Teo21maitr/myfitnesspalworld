@@ -9,12 +9,10 @@ import type {
   Paginated,
   SexForCalculation,
   ValueSource,
-  WeightEntry,
 } from '@/lib/api/types'
 
 export const goalsQueryKey = ['nutrition', 'goals'] as const
 export const currentGoalQueryKey = ['nutrition', 'goals', 'current'] as const
-export const weightQueryKey = ['progress', 'weight'] as const
 
 /** Entrées du calcul calorique, telles qu'attendues par le backend. */
 export interface CalculationPayload {
@@ -79,8 +77,3 @@ export const setDayOverride = (
 
 export const deleteDayOverride = (goalId: number, weekday: number) =>
   api.delete<void>(`/profile/goals/${goalId}/overrides/${weekday}/`)
-
-export const fetchWeightEntries = () => api.get<Paginated<WeightEntry>>('/progress/weight/')
-
-export const saveWeight = (payload: { date: string; weight_kg: string; notes?: string | null }) =>
-  api.post<WeightEntry>('/progress/weight/', payload)
