@@ -31,6 +31,10 @@ import { NewRecipePage } from '@/pages/recipes/new-recipe-page'
 import { RecipeDetailPage } from '@/pages/recipes/recipe-detail-page'
 import { RecipesPage } from '@/pages/recipes/recipes-page'
 import { SavedMealsPage } from '@/pages/saved-meals-page'
+import { FriendsPage } from '@/pages/friends-page'
+import { SharedDiaryPage } from '@/pages/shared/shared-diary-page'
+import { SharedProgressPage } from '@/pages/shared/shared-progress-page'
+import { SharesPage } from '@/pages/shares-page'
 
 export const routes = [
   {
@@ -91,6 +95,10 @@ export const routes = [
       { path: 'recettes/:id/modifier', element: <EditRecipePage /> },
       { path: 'mes-repas', element: <SavedMealsPage /> },
       { path: 'progression', element: <ProgressPage /> },
+      { path: 'amis', element: <FriendsPage /> },
+      { path: 'amis/:userId/journal', element: <SharedDiaryPage /> },
+      { path: 'amis/:userId/progression', element: <SharedProgressPage /> },
+      { path: 'partages', element: <SharesPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
       { path: 'compte', element: <AccountPage /> },
       { path: '*', element: <NotFoundPage /> },

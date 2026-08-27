@@ -19,6 +19,7 @@ import {
   useDuplicateRecipe,
   useRecipe,
 } from '@/features/recipes/use-recipes'
+import { ShareDialog } from '@/features/shares/share-dialog'
 import type { RecipeDetail } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
 
@@ -246,6 +247,10 @@ export function RecipeDetailPage() {
               Modifier
             </Link>
           </Button>
+        )}
+
+        {recipe.is_editable && (
+          <ShareDialog resourceType="recipe" resourceId={recipe.id} label={recipe.name} />
         )}
 
         <Button
