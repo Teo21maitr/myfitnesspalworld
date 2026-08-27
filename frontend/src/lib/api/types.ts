@@ -142,6 +142,43 @@ export interface WeightEntry {
   updated_at: string
 }
 
+/** Ce qu'un autre compte peut savoir d'un utilisateur (spec 01 §1). */
+export interface UserSummary {
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+}
+
+export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled'
+
+export interface FriendRequest {
+  id: number
+  from_user: UserSummary
+  to_user: UserSummary
+  status: FriendRequestStatus
+  /** « reçue » ou « envoyée », du point de vue de l'appelant. */
+  direction: 'received' | 'sent'
+  created_at: string
+}
+
+/** Ressources partageables (spec 01 §18). Les photos n'en font jamais partie. */
+export type ShareResourceType = 'food' | 'recipe' | 'saved_meal' | 'diary' | 'progress'
+
+export type ShareVisibility = 'specific_user' | 'app_users'
+
+export interface SharePermission {
+  id: number
+  owner: UserSummary
+  target_user: UserSummary | null
+  resource_type: ShareResourceType
+  /** Nul pour le journal et la progression, qui ne sont pas une ligne. */
+  resource_id: number | null
+  resource_name: string
+  visibility: ShareVisibility
+  created_at: string
+}
+
 /** Valeurs nutritionnelles d'une recette, **pour une portion** (spec 01 §14). */
 export interface RecipeNutrition extends NutritionValues {
   net_carbs_g: string | null
