@@ -294,10 +294,17 @@ OFF_SEARCH_RATE_PER_MINUTE = env.int("OFF_SEARCH_RATE_PER_MINUTE", default=10)
 OFF_CACHE_TTL_DAYS = env.int("OFF_CACHE_TTL_DAYS", default=30)
 
 # -----------------------------------------------------------------------------
-# IA — configuration seulement, aucun appel dans le socle (spec 07 §3)
+# IA (spec 07 §3)
 # -----------------------------------------------------------------------------
+# Ces variables disent seulement si l'IA est *configurée*. Le coupe-circuit que
+# la spec 07 §11 confie à l'administrateur vit en base, dans `AppSetting` :
+# une variable d'environnement se change en redéployant, ce qui n'est pas la
+# réactivité qu'on attend d'un interrupteur.
 AI_ENABLED = env.bool("AI_ENABLED", default=False)
 ANTHROPIC_API_KEY = env.str("ANTHROPIC_API_KEY", default="")
+# `anthropic` en fonctionnement réel, `fake` pour le développement sans clé et
+# pour rendre les parcours de test déterministes. La production refuse `fake`.
+AI_PROVIDER = env.str("AI_PROVIDER", default="anthropic")
 AI_MEAL_SCAN_MODEL = env.str("AI_MEAL_SCAN_MODEL", default="")
 AI_MEAL_PLANNER_MODEL = env.str("AI_MEAL_PLANNER_MODEL", default="")
 AI_VOICE_PARSING_MODEL = env.str("AI_VOICE_PARSING_MODEL", default="")

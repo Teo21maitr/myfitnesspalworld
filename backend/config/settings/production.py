@@ -3,7 +3,7 @@
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *
-from .base import CELERY_TASK_ALWAYS_EAGER, env
+from .base import AI_PROVIDER, CELERY_TASK_ALWAYS_EAGER, env
 
 DEBUG = False
 
@@ -35,8 +35,14 @@ AUTH_COOKIE_SAMESITE = env.str("AUTH_COOKIE_SAMESITE", default="None")
 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)
 
-# En exécution synchrone, une requête tiendrait la connexion HTTP pendant tout
-# le traitement qu'elle a déclenché.
+# Le fournisseur d'IA simulé renvoie des suggestions inventées. En production
+# elles seraient servies sans le moindre signe extérieur : mieux vaut refuser
+# de démarrer.
+if AI_PROVIDER == "fake":
+    raise ImproperlyConfigured("AI_PROVIDER=fake est interdit en production.")
+
+# Même raisonnement : en exécution synchrone, une requête d'analyse tiendrait
+# la connexion HTTP pendant tout l'appel au modèle.
 if CELERY_TASK_ALWAYS_EAGER:
     raise ImproperlyConfigured("CELERY_TASK_ALWAYS_EAGER est interdit en production.")
 

@@ -18,6 +18,10 @@ defusedxml==0.7.1
 # Client HTTP des sources externes (Open Food Facts)
 requests==2.34.2
 
+# Fournisseur d'IA (spec 07 §2). Isolé derrière `ai.providers.AnthropicProvider`
+# et importé paresseusement : le socle démarre sans lui.
+anthropic==1.2.0
+
 # Tâches asynchrones
 celery[redis]==5.6.3
 # redis-py est contraint par kombu (celery) : redis<6.5

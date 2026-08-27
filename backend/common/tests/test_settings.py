@@ -40,6 +40,14 @@ def production_env(monkeypatch):
             sys.modules[BASE] = original_base
 
 
+def test_le_fournisseur_simule_est_refuse_en_production(production_env):
+    """Une suggestion inventée servie en production ne se verrait pas."""
+    production_env.setenv("AI_PROVIDER", "fake")
+
+    with pytest.raises(ImproperlyConfigured):
+        importlib.import_module(PRODUCTION)
+
+
 def test_l_execution_synchrone_est_refusee_en_production(production_env):
     """Une requête HTTP y attendrait tout l'appel au modèle."""
     production_env.setenv("CELERY_TASK_ALWAYS_EAGER", "True")
@@ -49,8 +57,10 @@ def test_l_execution_synchrone_est_refusee_en_production(production_env):
 
 
 def test_une_configuration_normale_est_acceptee(production_env):
+    production_env.setenv("AI_PROVIDER", "anthropic")
     production_env.setenv("CELERY_TASK_ALWAYS_EAGER", "False")
 
     module = importlib.import_module(PRODUCTION)
 
+    assert module.AI_PROVIDER == "anthropic"
     assert module.CELERY_TASK_ALWAYS_EAGER is False
