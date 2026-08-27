@@ -195,6 +195,31 @@ describe('Accueil', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Service indisponible.')
   })
 
+  it('garde les objectifs atteignables même lorsqu’un objectif existe', async () => {
+    // « Objectifs » a cédé sa place à « Progression » dans la barre mobile :
+    // sans ce lien, la page deviendrait inaccessible au doigt.
+    stubDashboard()
+    renderRoute('/')
+
+    await screen.findByRole('heading', { name: 'Calories' })
+
+    const calories = within(card('Calories'))
+    expect(calories.getByRole('link', { name: 'Objectifs' })).toHaveAttribute('href', '/objectifs')
+  })
+
+  it('renvoie vers la progression depuis le widget poids', async () => {
+    stubDashboard()
+    renderRoute('/')
+
+    await screen.findByRole('heading', { name: 'Poids' })
+
+    const weight = within(card('Poids'))
+    expect(weight.getByRole('link', { name: 'Progression' })).toHaveAttribute(
+      'href',
+      '/progression',
+    )
+  })
+
   it('propose les raccourcis d’ajout', async () => {
     stubDashboard()
     renderRoute('/')

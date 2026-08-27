@@ -1,4 +1,4 @@
-import { Apple, BookOpen, ScanBarcode, TriangleAlert, Zap } from 'lucide-react'
+import { Apple, BookOpen, ScanBarcode, Target, TrendingUp, TriangleAlert, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -27,10 +27,19 @@ function CaloriesCard({ day }: { day: Dashboard }) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
         <CardTitle as="h2" className="text-base">
           Calories
         </CardTitle>
+        {/* « Objectifs » a cédé sa place à « Progression » dans la barre
+            mobile : ce lien reste sa porte d'entrée, y compris lorsqu'un
+            objectif est déjà défini. */}
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/objectifs">
+            <Target aria-hidden="true" className="size-4" />
+            Objectifs
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         <p className="text-3xl font-semibold">
@@ -91,15 +100,24 @@ function WeightCard({ weight }: { weight: Dashboard['weight'] }) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
         <CardTitle as="h2" className="text-base">
           Poids
         </CardTitle>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/progression">
+            <TrendingUp aria-hidden="true" className="size-4" />
+            Progression
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         {weight.latest_kg === null ? (
           <p className="text-muted-foreground text-sm">
-            Aucune pesée enregistrée. Votre poids apparaîtra ici dès la première saisie.
+            Aucune pesée enregistrée.{' '}
+            <Link to="/progression" className="underline">
+              Enregistrer une pesée
+            </Link>
           </p>
         ) : (
           <>

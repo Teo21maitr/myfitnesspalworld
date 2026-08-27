@@ -4,6 +4,7 @@ import {
   Home,
   ScanBarcode,
   Target,
+  TrendingUp,
   UserRound,
   Zap,
   type LucideIcon,
@@ -22,13 +23,15 @@ export interface NavItem {
  * Aliments et Scanner quittent la barre pour ce menu : l'action centrale du
  * quotidien est d'ajouter au journal, pas de naviguer.
  *
- * La spec place « Progression » en quatrième position ; cette page n'existe pas
- * encore et « Objectifs » tient sa place.
+ * « Objectifs » cède la quatrième place à « Progression », que la spec y
+ * place. Cette page n'ayant plus d'entrée dans la barre, elle reste atteignable
+ * depuis la carte Calories de l'accueil et depuis « Mon compte » : sans cela,
+ * elle deviendrait inaccessible sur mobile.
  */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Accueil', Icon: Home },
   { to: '/journal', label: 'Journal', Icon: BookOpen },
-  { to: '/objectifs', label: 'Objectifs', Icon: Target },
+  { to: '/progression', label: 'Progression', Icon: TrendingUp },
   { to: '/compte', label: 'Compte', Icon: UserRound },
 ]
 
@@ -49,6 +52,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/journal', label: 'Journal', Icon: BookOpen },
   { to: '/aliments', label: 'Aliments', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
+  { to: '/progression', label: 'Progression', Icon: TrendingUp },
   { to: '/objectifs', label: 'Objectifs', Icon: Target },
   { to: '/compte', label: 'Compte', Icon: UserRound },
 ]

@@ -19,7 +19,7 @@ describe('Barre de navigation mobile', () => {
 
     expect(screen.getByRole('link', { name: 'Accueil' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Journal' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Objectifs' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Progression' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Compte' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument()
   })
