@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { useCameraStream, type CameraStatus } from '@/features/camera/use-camera-stream'
+
 /**
  * Lecture de code-barres par la caméra (spec 01 §10).
  *
@@ -16,6 +18,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  *
  * La saisie manuelle du code reste offerte en parallèle : un geste ne doit
  * jamais être l'unique moyen d'agir (spec 06 §6).
+ *
+ * L'ouverture et la fermeture du flux vivent dans `useCameraStream`, partagées
+ * avec la prise de vue d'un repas. Ce module ne garde que la détection.
  */
 
 /** Formats attendus sur un produit alimentaire emballé. */
@@ -23,6 +28,11 @@ const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf'] as const
 
 export type ScannerStatus =
   'idle' | 'starting' | 'scanning' | 'unsupported' | 'denied' | 'no-camera' | 'error'
+
+/** « Caméra ouverte » se dit « en train de scanner » ici, et rien d'autre ne change. */
+function toScannerStatus(status: CameraStatus): ScannerStatus {
+  return status === 'active' ? 'scanning' : status
+}
 
 interface BarcodeDetectorLike {
   detect: (source: CanvasImageSource) => Promise<{ rawValue: string }[]>
@@ -38,33 +48,30 @@ function nativeDetector(): BarcodeDetectorConstructor | null {
   return typeof candidate === 'function' ? candidate : null
 }
 
-/** `true` si le navigateur peut ouvrir une caméra. */
-export function supportsCamera(): boolean {
-  return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
-}
-
 interface UseBarcodeScannerOptions {
   /** Appelé une seule fois, au premier code lu. */
   onDetected: (barcode: string) => void
 }
 
 export function useBarcodeScanner({ onDetected }: UseBarcodeScannerOptions) {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const camera = useCameraStream()
   const frameRef = useRef<number | null>(null)
   // Contrôleur du lecteur de secours : `stop()` doit pouvoir l'arrêter.
   const zxingControlsRef = useRef<{ stop: () => void } | null>(null)
-  const stoppedRef = useRef(false)
   // Le rappel est gardé dans une ref : la boucle de détection ne doit pas se
   // reconstruire à chaque rendu du composant.
   const onDetectedRef = useRef(onDetected)
-  const [status, setStatus] = useState<ScannerStatus>('idle')
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     onDetectedRef.current = onDetected
   }, [onDetected])
 
+  const { start: startCamera, stop: stopCamera, stoppedRef } = camera
+
   const stop = useCallback(() => {
+    // Avant tout : la détection en vol doit renoncer plutôt que de rappeler
+    // l'appelant sur un écran qu'il vient de quitter.
     stoppedRef.current = true
     if (frameRef.current !== null) {
       cancelAnimationFrame(frameRef.current)
@@ -72,55 +79,14 @@ export function useBarcodeScanner({ onDetected }: UseBarcodeScannerOptions) {
     }
     zxingControlsRef.current?.stop()
     zxingControlsRef.current = null
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    streamRef.current = null
-    setStatus('idle')
-  }, [])
+    setFailed(false)
+    stopCamera()
+  }, [stopCamera, stoppedRef])
 
   const start = useCallback(async () => {
-    if (!supportsCamera()) {
-      setStatus('unsupported')
-      return
-    }
-
-    stoppedRef.current = false
-    setStatus('starting')
-
-    let stream: MediaStream
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        // Caméra arrière quand il y en a une : c'est celle qu'on pointe vers
-        // l'emballage.
-        video: { facingMode: 'environment' },
-      })
-    } catch (error) {
-      setStatus(describeCameraFailure(error))
-      return
-    }
-
-    // L'utilisateur a pu quitter la page pendant la demande d'autorisation.
-    if (stoppedRef.current) {
-      stream.getTracks().forEach((track) => track.stop())
-      return
-    }
-
-    streamRef.current = stream
-    const video = videoRef.current
-    if (!video) {
-      stream.getTracks().forEach((track) => track.stop())
-      setStatus('error')
-      return
-    }
-
-    video.srcObject = stream
-    try {
-      await video.play()
-    } catch {
-      // Certains navigateurs refusent la lecture automatique ; le flux reste
-      // affiché et la détection peut démarrer malgré tout.
-    }
-
-    setStatus('scanning')
+    setFailed(false)
+    const video = await startCamera()
+    if (!video) return
 
     const handle = (barcode: string) => {
       if (stoppedRef.current) return
@@ -138,23 +104,18 @@ export function useBarcodeScanner({ onDetected }: UseBarcodeScannerOptions) {
       await runZxingLoop(video, stoppedRef, zxingControlsRef, handle)
     } catch {
       if (!stoppedRef.current) {
-        setStatus('error')
+        setFailed(true)
       }
     }
-  }, [])
+  }, [startCamera, stoppedRef])
 
-  // Libère la caméra dès que la page est quittée : le voyant ne doit pas
-  // rester allumé.
-  useEffect(() => stop, [stop])
-
-  return { videoRef, status, start, stop, usesNativeDetector: nativeDetector() !== null }
-}
-
-function describeCameraFailure(error: unknown): ScannerStatus {
-  const name = (error as { name?: string } | null)?.name
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied'
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-camera'
-  return 'error'
+  return {
+    videoRef: camera.videoRef,
+    status: failed ? ('error' as ScannerStatus) : toScannerStatus(camera.status),
+    start,
+    stop,
+    usesNativeDetector: nativeDetector() !== null,
+  }
 }
 
 function runNativeLoop(
