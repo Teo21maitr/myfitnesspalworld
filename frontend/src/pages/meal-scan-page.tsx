@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label'
 import { today } from '@/features/diary/dates'
 import { activeMeals, defaultMealTypeId } from '@/features/diary/meals'
 import { useCreateEntry, useMealTypes } from '@/features/diary/use-diary'
-import { Capture } from '@/features/meal-scan/capture'
+import { AI_DISABLED_MESSAGE } from '@/features/ai/status'
+import { Capture } from '@/features/camera/capture'
 import { initialLines, loggableLines, type ScanLine } from '@/features/meal-scan/lines'
 import { SuggestionCard } from '@/features/meal-scan/suggestion-card'
 import {
@@ -23,9 +24,6 @@ import {
 import { ApiError } from '@/lib/api/client'
 import type { MealScanSuggestion } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
-
-const AI_DISABLED_MESSAGE =
-  'L’analyse par IA est indisponible pour le moment. Le reste de l’application fonctionne normalement : vous pouvez ajouter vos aliments par la recherche.'
 
 /**
  * Scanner un repas (spec 01, spec 07 §5).
@@ -155,7 +153,7 @@ export function MealScanPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Capture onAnalyze={analyze} pending={start.isPending} />
+            <Capture onAnalyze={analyze} pending={start.isPending} subject="du repas" />
           </CardContent>
         </Card>
       )}

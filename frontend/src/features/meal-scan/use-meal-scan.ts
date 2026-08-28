@@ -1,61 +1,18 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 
-import type { MealScanTask } from '@/lib/api/types'
+import { useAsyncTask } from '@/features/tasks/use-task'
+import type { MealScanResult } from '@/lib/api/types'
 
-import {
-  aiStatusQueryKey,
-  fetchAIStatus,
-  fetchMealScanTask,
-  startMealScan,
-  taskQueryKey,
-} from './api'
+import { startMealScan } from './api'
 
-/** Intervalle d'interrogation pendant l'analyse. */
-export const POLL_INTERVAL_MS = 1500
-
-/** Au-delà, on cesse d'attendre : le worker ne répondra plus. */
-export const POLL_TIMEOUT_MS = 90_000
-
-export function isRunning(task: MealScanTask | undefined): boolean {
-  return task?.status === 'pending' || task?.status === 'processing'
-}
+export { isRunning } from '@/features/tasks/use-task'
+export { useAIStatus } from '@/features/ai/status'
 
 export function useStartMealScan() {
   return useMutation({ mutationFn: (images: File[]) => startMealScan(images) })
 }
 
-/**
- * Suit une tâche d'analyse jusqu'à son terme.
- *
- * L'interrogation s'arrête d'elle-même dès que la tâche aboutit ou échoue :
- * continuer à interroger une tâche terminée n'apprendrait plus rien.
- */
+/** Suit l'analyse d'une photo de repas. */
 export function useMealScanTask(taskId: string | null) {
-  return useQuery({
-    queryKey: taskQueryKey(taskId ?? ''),
-    queryFn: () => fetchMealScanTask(taskId as string),
-    enabled: Boolean(taskId),
-    refetchInterval: (query) => (isRunning(query.state.data) ? POLL_INTERVAL_MS : false),
-    // Une tâche déjà lue ne change plus : inutile de la relire au retour sur
-    // l'onglet.
-    refetchOnWindowFocus: false,
-    gcTime: POLL_TIMEOUT_MS,
-  })
-}
-
-/**
- * Disponibilité de l'IA, demandée à l'ouverture de l'écran.
- *
- * Un échec de cette requête ne doit pas condamner l'écran : la prise de vue
- * reste offerte et l'indisponibilité, si elle est réelle, ressortira au moment
- * de l'envoi.
- */
-export function useAIStatus() {
-  return useQuery({
-    queryKey: aiStatusQueryKey,
-    queryFn: fetchAIStatus,
-    // Un coupe-circuit administrateur peut basculer pendant la session.
-    staleTime: 60_000,
-    retry: false,
-  })
+  return useAsyncTask<MealScanResult>(taskId)
 }

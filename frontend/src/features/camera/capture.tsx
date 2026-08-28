@@ -2,9 +2,10 @@ import { Camera, CameraOff, Image as ImageIcon, Loader2, Trash2 } from 'lucide-r
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { captureFrame, prepareImage } from '@/features/camera/image'
-import { useCameraStream, type CameraStatus } from '@/features/camera/use-camera-stream'
 import { cn } from '@/lib/utils'
+
+import { captureFrame, prepareImage } from './image'
+import { useCameraStream, type CameraStatus } from './use-camera-stream'
 
 /** Aligné sur la limite du backend (spec 05 §14). */
 export const MAX_IMAGES = 3
@@ -53,8 +54,9 @@ function release(preview: string | null): void {
 /**
  * Prise de vue.
  *
- * La caméra s'ouvre dans la page — c'est le geste attendu quand on a son
- * assiette devant soi. L'import d'un fichier reste offert **en permanence**, et
+ * Partagée par le scan de repas et la lecture d'étiquette : le geste est le
+ * même, seul le sujet change. La caméra s'ouvre dans la page — c'est ce qu'on
+ * attend quand on a l'objet devant soi. L'import d'un fichier reste offert **en permanence**, et
  * pas seulement en repli : un geste ne doit jamais être l'unique moyen d'agir
  * (spec 06 §6). Il redevient le seul chemin quand la caméra est refusée,
  * absente ou non supportée.
@@ -66,9 +68,14 @@ function release(preview: string | null): void {
 export function Capture({
   onAnalyze,
   pending,
+  subject,
+  analyzeLabel = 'Analyser',
 }: {
   onAnalyze: (images: File[]) => void
   pending: boolean
+  /** Complément du nom, au génitif : « du repas », « de l'étiquette ». */
+  subject: string
+  analyzeLabel?: string
 }) {
   // Déstructuré plutôt que gardé en objet : `status` est une valeur de rendu,
   // et la lire à travers un objet qui porte aussi des références brouille la
@@ -149,7 +156,7 @@ export function Capture({
         accept="image/jpeg,image/png,image/webp"
         multiple
         className="sr-only"
-        aria-label="Importer une photo du repas"
+        aria-label={`Importer une photo ${subject}`}
         onChange={(event) => void addFiles(event.target.files)}
       />
 
@@ -263,7 +270,7 @@ export function Capture({
         onClick={analyze}
       >
         {pending && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}
-        Analyser
+        {analyzeLabel}
       </Button>
     </div>
   )

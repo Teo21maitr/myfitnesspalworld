@@ -50,7 +50,7 @@ describe('prise de vue', () => {
   it('ouvre la caméra dans la page', async () => {
     const user = userEvent.setup()
     installCamera()
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
 
@@ -64,7 +64,7 @@ describe('prise de vue', () => {
     // Sans dimensions, le cliché serait vide : jsdom ne les fournit pas.
     Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { value: 1920 })
     Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { value: 1080 })
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
     await user.click(await screen.findByRole('button', { name: 'Prendre la photo' }))
@@ -77,7 +77,7 @@ describe('prise de vue', () => {
     const user = userEvent.setup()
     const track = installCamera()
     const onAnalyze = vi.fn()
-    render(<Capture onAnalyze={onAnalyze} pending={false} />)
+    render(<Capture onAnalyze={onAnalyze} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
     await screen.findByRole('button', { name: 'Prendre la photo' })
@@ -91,7 +91,7 @@ describe('prise de vue', () => {
   it('arrête la caméra à la fermeture explicite', async () => {
     const user = userEvent.setup()
     const track = installCamera()
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
     await user.click(await screen.findByRole('button', { name: 'Fermer la caméra' }))
@@ -102,7 +102,7 @@ describe('prise de vue', () => {
   it('arrête la caméra quand la page est quittée', async () => {
     const user = userEvent.setup()
     const track = installCamera()
-    const { unmount } = render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    const { unmount } = render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
     await screen.findByRole('button', { name: 'Prendre la photo' })
@@ -116,7 +116,7 @@ describe('l’import reste un chemin de plein droit', () => {
   it('offert même quand la caméra fonctionne', async () => {
     const user = userEvent.setup()
     installCamera()
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
     await screen.findByRole('button', { name: 'Prendre la photo' })
@@ -128,7 +128,7 @@ describe('l’import reste un chemin de plein droit', () => {
   it('reste le chemin quand la caméra est refusée, et le dit', async () => {
     const user = userEvent.setup()
     refuseCamera()
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
 
@@ -139,7 +139,7 @@ describe('l’import reste un chemin de plein droit', () => {
   it('annonce l’absence de caméra sans bloquer', async () => {
     const user = userEvent.setup()
     refuseCamera('NotFoundError')
-    render(<Capture onAnalyze={vi.fn()} pending={false} />)
+    render(<Capture onAnalyze={vi.fn()} pending={false} subject="du repas" />)
 
     await user.click(screen.getByRole('button', { name: 'Ouvrir la caméra' }))
 
@@ -150,7 +150,7 @@ describe('l’import reste un chemin de plein droit', () => {
     const user = userEvent.setup()
     installCamera()
     const onAnalyze = vi.fn()
-    render(<Capture onAnalyze={onAnalyze} pending={false} />)
+    render(<Capture onAnalyze={onAnalyze} pending={false} subject="du repas" />)
 
     await user.upload(screen.getByLabelText('Importer une photo du repas'), photo())
     await user.click(await screen.findByRole('button', { name: 'Analyser' }))
