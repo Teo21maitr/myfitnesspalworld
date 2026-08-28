@@ -93,7 +93,7 @@ class AnthropicProvider:
         except (sdk.APIConnectionError, sdk.APITimeoutError) as error:
             raise AIProviderUnavailable("Le fournisseur d'IA est injoignable.") from error
         except sdk.APIStatusError as error:
-            logger.info("Réponse %s du fournisseur d'IA", error.status_code)
+            _log_status_error(error)
             raise AIProviderUnavailable("Le fournisseur d'IA a refusé la requête.") from error
         except sdk.AnthropicError as error:
             raise AIProviderUnavailable("Appel au fournisseur d'IA impossible.") from error
@@ -119,3 +119,41 @@ class AnthropicProvider:
         if not isinstance(payload, dict):
             raise AIResponseUnusable("Le fournisseur d'IA n'a pas renvoyé un objet.")
         return payload
+
+
+#: Seul type d'erreur dont le message est journalisé.
+#:
+#: `invalid_request_error` décrit la **forme** de la requête — « property
+#: `maxItems` is not supported » — soit un défaut de configuration, jamais le
+#: contenu de la photo de quelqu'un. Les autres types peuvent citer la charge
+#: utile : seuls leur code et leur identifiant de requête sont conservés.
+LOGGABLE_ERROR_TYPE = "invalid_request_error"
+
+
+def _log_status_error(error) -> None:
+    """Journalise de quoi diagnostiquer, sans jamais recopier de donnée privée.
+
+    Le message générique rendu à l'utilisateur est juste, mais il ne dit pas
+    *pourquoi* : sans cette trace, un schéma devenu invalide se présente comme
+    une panne quelconque, et le diagnostic demande de rejouer l'appel à la main.
+    """
+    body = getattr(error, "body", None)
+    detail = body.get("error") if isinstance(body, dict) else None
+    kind = detail.get("type") if isinstance(detail, dict) else None
+    request_id = getattr(error, "request_id", None)
+
+    if kind == LOGGABLE_ERROR_TYPE and isinstance(detail, dict):
+        logger.warning(
+            "Requête refusée par le fournisseur d'IA (%s, requête %s) : %s",
+            error.status_code,
+            request_id or "inconnue",
+            detail.get("message"),
+        )
+        return
+
+    logger.info(
+        "Réponse %s du fournisseur d'IA (%s, requête %s)",
+        error.status_code,
+        kind or "type inconnu",
+        request_id or "inconnue",
+    )

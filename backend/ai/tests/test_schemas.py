@@ -12,9 +12,19 @@ import pytest
 from ai.providers import AIResponseUnusable
 from ai.schemas import (
     MEAL_SCAN_JSON_SCHEMA,
+    UNSUPPORTED_SCHEMA_KEYWORDS,
     MealScanResultSerializer,
     validate_ai_output,
 )
+
+
+def keywords(node: object) -> set[str]:
+    """Tous les mots-clés employés par un schéma, à toute profondeur."""
+    if isinstance(node, dict):
+        return set(node) | {key for value in node.values() for key in keywords(value)}
+    if isinstance(node, list):
+        return {key for item in node for key in keywords(item)}
+    return set()
 
 
 def detection(**overrides) -> dict:
@@ -60,6 +70,15 @@ class TestNutritionNeverPasses:
         }
         assert "energy_kcal" not in item
         assert "9999" not in str(item)
+
+    def test_le_schema_n_emploie_aucun_mot_cle_refuse(self):
+        """Les sorties structurées rejettent les bornes numériques et de taille.
+
+        Un schéma qui en contient fait échouer **toute** la requête en 400, sans
+        que rien ne distingue cette panne d'une autre côté utilisateur. Les
+        bornes vivent donc dans le serializer, qui les applique de toute façon.
+        """
+        assert not keywords(MEAL_SCAN_JSON_SCHEMA) & UNSUPPORTED_SCHEMA_KEYWORDS
 
     def test_le_schema_envoye_interdit_tout_champ_supplementaire(self):
         item_schema = MEAL_SCAN_JSON_SCHEMA["properties"]["items"]["items"]

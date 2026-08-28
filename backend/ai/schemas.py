@@ -35,6 +35,21 @@ MAX_DETECTED_ITEMS = 20
 
 MAX_ALTERNATIVES = 5
 
+#: Mots-clés que les sorties structurées **n'acceptent pas**.
+#:
+#: Vérifié contre l'API : `maxItems`, `exclusiveMinimum`, `minimum` et
+#: `maximum` font échouer la requête en 400. Le schéma envoyé contraint donc la
+#: *forme* — quels champs, de quels types, et rien d'autre — tandis que les
+#: *valeurs* sont bornées par le serializer plus bas.
+#:
+#: Cette répartition n'est pas un pis-aller : une confiance de 5 ou une
+#: quantité négative auraient de toute façon demandé une validation métier,
+#: puisqu'elles sont conformes au type. C'est la raison d'être de la seconde
+#: barrière.
+UNSUPPORTED_SCHEMA_KEYWORDS = frozenset(
+    {"maxItems", "minItems", "exclusiveMinimum", "exclusiveMaximum", "minimum", "maximum"}
+)
+
 #: Schéma transmis au fournisseur. `additionalProperties: false` est la
 #: première barrière contre un champ nutritionnel spontané.
 MEAL_SCAN_JSON_SCHEMA = {
@@ -42,7 +57,6 @@ MEAL_SCAN_JSON_SCHEMA = {
     "properties": {
         "items": {
             "type": "array",
-            "maxItems": MAX_DETECTED_ITEMS,
             "items": {
                 "type": "object",
                 "properties": {
@@ -52,16 +66,19 @@ MEAL_SCAN_JSON_SCHEMA = {
                     },
                     "estimated_quantity": {
                         "type": "number",
-                        "exclusiveMinimum": 0,
-                        "description": "Quantité visible estimée.",
+                        "description": "Quantité visible estimée, strictement positive.",
                     },
                     "unit": {"type": "string", "enum": list(DETECTABLE_UNITS)},
-                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "confidence": {
+                        "type": "number",
+                        "description": "Confiance entre 0 et 1.",
+                    },
                     "alternatives": {
                         "type": "array",
-                        "maxItems": MAX_ALTERNATIVES,
                         "items": {"type": "string"},
-                        "description": "Autres identifications plausibles.",
+                        "description": (
+                            f"Autres identifications plausibles, {MAX_ALTERNATIVES} au maximum."
+                        ),
                     },
                 },
                 "required": ["label", "estimated_quantity", "unit", "confidence"],
