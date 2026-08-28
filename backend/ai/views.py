@@ -32,6 +32,23 @@ ACTIVE_USER = [IsAuthenticated, IsActiveAccount]
 RESULT_RETENTION_HOURS = 24
 
 
+class AIStatusView(APIView):
+    """`GET /ai/status/` — l'IA est-elle disponible ?
+
+    Existe pour que l'interface le dise **avant** de faire cadrer une photo :
+    apprendre qu'une fonctionnalité est éteinte au moment de l'envoi, après
+    l'avoir préparée, est une mauvaise façon de l'apprendre.
+
+    Ne renvoie que `enabled`. Le fournisseur, le modèle et la présence d'une clé
+    sont des détails de configuration, pas des informations utilisateur.
+    """
+
+    permission_classes = ACTIVE_USER
+
+    def get(self, request: Request) -> Response:
+        return Response({"enabled": gate.is_enabled()})
+
+
 class MealScanView(APIView):
     """`POST /ai/meal-scan/` — lance l'analyse d'une photo de repas.
 
