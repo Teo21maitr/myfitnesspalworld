@@ -35,8 +35,28 @@ DETECTIONS = [
 ]
 
 
+#: Étiquette simulée. `fiber_g` est nul **volontairement** : chaque exécution
+#: prouve ainsi qu'une valeur non lue reste nulle et ne devient pas zéro.
+LABEL = {
+    "name": "Produit de démonstration",
+    "brand": "Marque simulée",
+    "barcode": "7310865691750",
+    "basis": "100g",
+    "nutrition": {
+        "energy_kcal": 250,
+        "protein_g": 8.5,
+        "carbohydrates_g": 30,
+        "sugars_g": 4.2,
+        "fat_g": 10,
+        "fiber_g": None,
+        "salt_g": 0.9,
+        "sodium_mg": None,
+    },
+}
+
+
 class FakeProvider:
-    """Renvoie toujours la même analyse."""
+    """Renvoie une réponse fixe, choisie d'après le schéma demandé."""
 
     name = "fake"
 
@@ -49,4 +69,8 @@ class FakeProvider:
         schema: dict,
         images: tuple[ImagePart, ...] = (),
     ) -> dict:
+        # Le schéma dit quelle tâche est en cours : un fournisseur simulé qui
+        # répondrait toujours la même chose ferait échouer l'autre.
+        if "nutrition" in schema.get("properties", {}):
+            return {**LABEL, "nutrition": dict(LABEL["nutrition"])}
         return {"items": [dict(detection) for detection in DETECTIONS]}

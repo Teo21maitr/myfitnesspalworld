@@ -133,3 +133,83 @@ def validate_ai_output(serializer_class, payload: object) -> dict:
         # décrivent le repas de quelqu'un et ne sont pas journalisées.
         raise AIResponseUnusable("Réponse d'IA invalide : " + ", ".join(sorted(serializer.errors)))
     return serializer.validated_data
+
+
+# -----------------------------------------------------------------------------
+# Lecture d'étiquette nutritionnelle
+# -----------------------------------------------------------------------------
+
+#: Nutriments qu'une étiquette européenne déclare et que le modèle de données
+#: sait porter. Les acides gras saturés, pourtant obligatoires sur l'étiquette,
+#: n'ont pas de colonne : la spec 01 §4 ne les prévoit pas, et on ne les invente
+#: pas ici.
+LABEL_NUTRIENTS = (
+    "energy_kcal",
+    "protein_g",
+    "carbohydrates_g",
+    "sugars_g",
+    "fat_g",
+    "fiber_g",
+    "salt_g",
+    "sodium_mg",
+)
+
+#: Base de déclaration lue sur l'étiquette. `unknown` couvre le cas où seule
+#: une colonne « par portion » figure : mieux vaut ne rien rendre que des
+#: valeurs fausses d'un facteur trois.
+LABEL_BASES = ("100g", "100ml", "unknown")
+
+#: Un nombre, ou rien. **Rien n'est pas zéro** : zéro affirme que le produit
+#: n'en contient pas, ce que seule une étiquette lisible permet de dire.
+_NULLABLE_NUMBER = {"type": ["number", "null"]}
+_NULLABLE_STRING = {"type": ["string", "null"]}
+
+LABEL_SCAN_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "description": "Nom du produit tel qu'écrit sur l'emballage."},
+        "brand": {**_NULLABLE_STRING, "description": "Marque, si elle figure."},
+        "barcode": {**_NULLABLE_STRING, "description": "Code-barres, uniquement s'il est lisible."},
+        "basis": {
+            "type": "string",
+            "enum": list(LABEL_BASES),
+            "description": "Colonne lue : pour 100 g, pour 100 ml, ou aucune des deux.",
+        },
+        "nutrition": {
+            "type": "object",
+            "properties": {name: dict(_NULLABLE_NUMBER) for name in LABEL_NUTRIENTS},
+            "required": list(LABEL_NUTRIENTS),
+            "additionalProperties": False,
+        },
+    },
+    "required": ["name", "brand", "barcode", "basis", "nutrition"],
+    "additionalProperties": False,
+}
+
+
+class LabelNutritionSerializer(serializers.Serializer):
+    """Valeurs lues sur l'étiquette, toutes facultatives et toutes nullables."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in LABEL_NUTRIENTS:
+            self.fields[name] = serializers.DecimalField(
+                max_digits=12,
+                decimal_places=3,
+                min_value=Decimal("0"),
+                allow_null=True,
+                required=False,
+                default=None,
+            )
+
+
+class LabelScanResultSerializer(serializers.Serializer):
+    """Brouillon d'aliment lu sur une étiquette (spec 01 §11)."""
+
+    name = serializers.CharField(max_length=255)
+    brand = serializers.CharField(max_length=255, allow_null=True, allow_blank=True, required=False)
+    barcode = serializers.CharField(
+        max_length=64, allow_null=True, allow_blank=True, required=False
+    )
+    basis = serializers.ChoiceField(choices=LABEL_BASES)
+    nutrition = LabelNutritionSerializer()

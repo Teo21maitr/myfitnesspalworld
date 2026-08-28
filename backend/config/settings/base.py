@@ -306,6 +306,9 @@ ANTHROPIC_API_KEY = env.str("ANTHROPIC_API_KEY", default="")
 # pour rendre les parcours de test déterministes. La production refuse `fake`.
 AI_PROVIDER = env.str("AI_PROVIDER", default="anthropic")
 AI_MEAL_SCAN_MODEL = env.str("AI_MEAL_SCAN_MODEL", default="")
+# Lire une étiquette est une transcription, pas une reconnaissance : la tâche
+# peut mériter un autre modèle. À défaut, celui du scan de repas (spec 07 §3).
+AI_LABEL_SCAN_MODEL = env.str("AI_LABEL_SCAN_MODEL", default="") or AI_MEAL_SCAN_MODEL
 AI_MEAL_PLANNER_MODEL = env.str("AI_MEAL_PLANNER_MODEL", default="")
 AI_VOICE_PARSING_MODEL = env.str("AI_VOICE_PARSING_MODEL", default="")
 AI_RECIPE_MODEL = env.str("AI_RECIPE_MODEL", default="")

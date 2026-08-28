@@ -73,6 +73,39 @@ class AIService:
         self._close(log, status=AILogStatus.SUCCESS, output=f"{len(items)} aliment(s) détecté(s)")
         return items
 
+    def read_label(self, *, user, images: list[ImagePart], model: str) -> dict:
+        """Recopie une étiquette nutritionnelle (spec 01 §11).
+
+        Le modèle transcrit ce qui est imprimé ; il n'estime rien. Une valeur
+        qu'il n'a pas lue revient nulle, jamais zéro — la distinction est une
+        règle métier, pas une préférence d'affichage (spec 01 §8).
+        """
+        log = AITaskLog.objects.create(
+            user=user,
+            task_type=TaskType.LABEL_SCAN,
+            status=AILogStatus.RUNNING,
+            provider=self._provider.name,
+            model=model,
+            input_summary=_describe_images(images),
+        )
+
+        try:
+            payload = self._provider.structured_completion(
+                model=model,
+                system=prompts.LABEL_SCAN_SYSTEM,
+                prompt=prompts.LABEL_SCAN_PROMPT,
+                schema=schemas.LABEL_SCAN_JSON_SCHEMA,
+                images=tuple(images),
+            )
+            result = schemas.validate_ai_output(schemas.LabelScanResultSerializer, payload)
+        except AIProviderError as error:
+            self._close(log, status=AILogStatus.FAILED, error=str(error))
+            raise
+
+        read = sum(1 for value in result["nutrition"].values() if value is not None)
+        self._close(log, status=AILogStatus.SUCCESS, output=f"{read} valeur(s) lue(s)")
+        return result
+
     @staticmethod
     def _close(log: AITaskLog, *, status: str, output: str | None = None, error: str | None = None):
         log.status = status

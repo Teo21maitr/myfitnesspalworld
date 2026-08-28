@@ -20,7 +20,7 @@ from ai.exceptions import AIUnavailable
 from ai.services import gate
 from ai.services import images as image_store
 from ai.services.uploads import FIELD, read_uploads
-from ai.tasks import analyze_meal_task
+from ai.tasks import analyze_meal_task, read_label_task
 from common.models import AsyncTask, TaskType
 from common.permissions import IsActiveAccount
 from common.serializers import AsyncTaskSerializer
@@ -49,11 +49,11 @@ class AIStatusView(APIView):
         return Response({"enabled": gate.is_enabled()})
 
 
-class MealScanView(APIView):
-    """`POST /ai/meal-scan/` — lance l'analyse d'une photo de repas.
+class ImageAnalysisView(APIView):
+    """Socle des endpoints qui analysent une photo.
 
-    Répond 202 : l'analyse dure plusieurs secondes et se poursuit dans un
-    worker. Le frontend suit son avancement par `GET /tasks/{id}/`.
+    Répondent 202 : le traitement dure plusieurs secondes et se poursuit dans
+    un worker. Le frontend suit son avancement par `GET /tasks/{id}/`.
 
     Le quota `ai` n'est pas une limite produit — la spec 07 §5 veut l'usage
     illimité pour l'utilisateur — mais une protection contre une boucle
@@ -65,6 +65,10 @@ class MealScanView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "ai"
 
+    #: Renseignés par les sous-classes.
+    task_type: str
+    celery_task = None
+
     def post(self, request: Request) -> Response:
         if not gate.is_enabled():
             raise AIUnavailable()
@@ -74,13 +78,31 @@ class MealScanView(APIView):
 
         task = AsyncTask.objects.create(
             user=request.user,
-            task_type=TaskType.MEAL_SCAN,
+            task_type=self.task_type,
             expires_at=timezone.now() + timedelta(hours=RESULT_RETENTION_HOURS),
         )
 
-        analyze_meal_task.delay(str(task.pk), keys)
+        self.celery_task.delay(str(task.pk), keys)
 
         # En exécution synchrone — tests, développement sans worker — la tâche
         # a déjà abouti : l'objet en mémoire serait périmé.
         task.refresh_from_db()
         return Response(AsyncTaskSerializer(task).data, status=status.HTTP_202_ACCEPTED)
+
+
+class MealScanView(ImageAnalysisView):
+    """`POST /ai/meal-scan/` — identifie les aliments d'une photo de repas."""
+
+    task_type = TaskType.MEAL_SCAN
+    celery_task = analyze_meal_task
+
+
+class LabelScanView(ImageAnalysisView):
+    """`POST /ai/label-scan/` — recopie une étiquette nutritionnelle.
+
+    Rend un brouillon d'aliment, jamais un aliment : c'est l'utilisateur qui
+    crée la fiche, après avoir vérifié ce que la photo a donné (spec 01 §11).
+    """
+
+    task_type = TaskType.LABEL_SCAN
+    celery_task = read_label_task
