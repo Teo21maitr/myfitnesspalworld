@@ -20,6 +20,15 @@ import {
  * calories (CLAUDE.md §2, spec 07 §1).
  */
 
+// Caméra simulée par Chromium : le parcours ouvre un vrai flux, sans jamais
+// allumer la caméra de la machine.
+test.use({
+  permissions: ['camera'],
+  launchOptions: {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+  },
+})
+
 const USERNAME = 'e2e-meal-scan'
 const PASSWORD = 'un-mot-de-passe-e2e-1'
 
@@ -71,14 +80,59 @@ test('analyse d’une photo, correction et journalisation', async ({ page }) => 
     await page.waitForURL((url) => !url.pathname.includes('onboarding'))
   })
 
-  await test.step('envoyer une photo et attendre l’analyse', async () => {
-    await page.goto('/meal-scan')
-    await expect(page.getByRole('heading', { name: 'Analyser une photo' })).toBeVisible()
+  await test.step('prendre la photo avec la caméra', async () => {
+    // Chaque flux ouvert est retenu pour vérifier, plus bas, qu'il a bien été
+    // relâché : une caméra ne s'éteint pas toute seule.
+    await page.addInitScript(() => {
+      const media = navigator.mediaDevices
+      const original = media.getUserMedia.bind(media)
+      const ouverts: MediaStream[] = []
+      Object.assign(window, { __flux: ouverts })
+      media.getUserMedia = async (contraintes?: MediaStreamConstraints) => {
+        const flux = await original(contraintes)
+        ouverts.push(flux)
+        return flux
+      }
+    })
 
+    await page.goto('/scanner-repas')
+    await expect(page.getByRole('heading', { name: 'Scanner un repas' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Ouvrir la caméra' }).click()
+    await page.getByRole('button', { name: 'Prendre la photo' }).click()
+
+    await expect(page.getByRole('button', { name: 'Retirer la photo 1' })).toBeVisible()
+  })
+
+  await test.step('l’import reste offert malgré la caméra', async () => {
+    // Un geste ne doit jamais être l'unique moyen d'agir (spec 06 §6).
     await page.locator('input[type="file"]').setInputFiles(PHOTO)
+
+    await expect(page.getByRole('button', { name: 'Retirer la photo 2' })).toBeVisible()
+  })
+
+  await test.step('lancer l’analyse', async () => {
     await page.getByRole('button', { name: 'Analyser' }).click()
 
     await expect(page.getByRole('heading', { name: 'Aliments détectés' })).toBeVisible()
+  })
+
+  await test.step('la caméra est éteinte pendant l’analyse', async () => {
+    // Le piège de cette étape : un flux qui survit à l'écran qui l'a ouvert
+    // laisse le voyant allumé sans qu'aucune erreur ne le signale.
+    //
+    // Cette vérification constate le résultat dans un vrai navigateur, mais ne
+    // dit pas *lequel* des deux garde-fous a agi : la prise de vue est démontée
+    // juste après, et son nettoyage suffirait. C'est le test unitaire de
+    // `capture.tsx` qui distingue les deux.
+    const etats = await page.evaluate(() =>
+      ((window as unknown as { __flux: MediaStream[] }).__flux ?? [])
+        .flatMap((flux) => flux.getTracks())
+        .map((piste) => piste.readyState),
+    )
+
+    expect(etats.length).toBeGreaterThan(0)
+    expect(etats.every((etat) => etat === 'ended')).toBe(true)
   })
 
   await test.step('les suggestions viennent de la base, pas de la photo', async () => {

@@ -2,7 +2,10 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
     "target": "es2023",
-    "lib": ["ES2023"],
+    /* Les rappels passés à `page.evaluate` et `page.addInitScript` s'exécutent
+       dans le navigateur : leurs types viennent de la DOM, même si la spec,
+       elle, tourne sous Node. */
+    "lib": ["ES2023", "DOM"],
     "types": ["node"],
     "skipLibCheck": true,
 
