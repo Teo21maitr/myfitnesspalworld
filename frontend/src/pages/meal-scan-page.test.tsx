@@ -5,9 +5,50 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MealScanCandidate, MealScanSuggestion, MealScanTask } from '@/lib/api/types'
 import { clearCsrfCookie, jsonResponse, seedCsrfCookie, stubFetch } from '@/test/fetch-mock'
 import { BASE_ROUTES, paginated } from '@/test/recipes'
+import { defaultMealTypeId } from '@/features/diary/meals'
 import { renderRoute } from '@/test/render'
 
 const TASK_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
+
+/** Les quatre repas par défaut, pour éprouver le choix. */
+const MEALS = [
+  {
+    id: 1,
+    name: 'Petit-déjeuner',
+    slug: 'pdj',
+    sort_order: 0,
+    is_active: true,
+    is_system: true,
+    system_key: 'breakfast',
+  },
+  {
+    id: 2,
+    name: 'Déjeuner',
+    slug: 'dej',
+    sort_order: 1,
+    is_active: true,
+    is_system: true,
+    system_key: 'lunch',
+  },
+  {
+    id: 3,
+    name: 'Dîner',
+    slug: 'diner',
+    sort_order: 2,
+    is_active: true,
+    is_system: true,
+    system_key: 'dinner',
+  },
+  {
+    id: 4,
+    name: 'Collations',
+    slug: 'coll',
+    sort_order: 3,
+    is_active: true,
+    is_system: true,
+    system_key: 'snacks',
+  },
+]
 
 function candidate(overrides: Partial<MealScanCandidate> = {}): MealScanCandidate {
   return {
@@ -54,6 +95,10 @@ function task(overrides: Partial<MealScanTask> = {}): MealScanTask {
   }
 }
 
+function stubStatus(enabled: boolean | (() => Response) = true) {
+  return typeof enabled === 'function' ? enabled : () => jsonResponse({ enabled })
+}
+
 function stubScan(payload: MealScanTask | (() => Response) = task()) {
   const scan = typeof payload === 'function' ? payload : () => jsonResponse(payload, 202)
   const detail =
@@ -61,7 +106,11 @@ function stubScan(payload: MealScanTask | (() => Response) = task()) {
 
   return stubFetch(
     [
+      // Devant `BASE_ROUTES`, qui n'expose qu'un seul repas : il en faut
+      // plusieurs pour éprouver le choix.
+      { match: '/meal-types/', respond: () => jsonResponse(MEALS) },
       ...BASE_ROUTES,
+      { match: '/ai/status/', respond: () => jsonResponse({ enabled: true }) },
       { match: '/ai/meal-scan/', respond: scan },
       { match: `/tasks/${TASK_ID}/`, respond: detail },
       { match: '/diary/entries/', respond: () => jsonResponse({ id: 1 }, 201) },
@@ -75,7 +124,7 @@ function photo(): File {
 }
 
 async function analyze(user: ReturnType<typeof userEvent.setup>) {
-  await user.upload(await screen.findByLabelText('Photo du repas'), photo())
+  await user.upload(await screen.findByLabelText('Importer une photo du repas'), photo())
   await user.click(await screen.findByRole('button', { name: 'Analyser' }))
 }
 
@@ -98,7 +147,7 @@ describe('Meal Scan', () => {
   it('affiche les aliments détectés après l’analyse', async () => {
     const user = userEvent.setup()
     stubScan()
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
@@ -109,7 +158,7 @@ describe('Meal Scan', () => {
   it('affiche les calories de la fiche, pas celles de la photo', async () => {
     const user = userEvent.setup()
     stubScan()
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
@@ -122,7 +171,7 @@ describe('Meal Scan', () => {
   it('ne journalise rien tant que l’utilisateur n’a pas confirmé', async () => {
     const user = userEvent.setup()
     const spy = stubScan()
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
     await screen.findByText('poulet')
@@ -146,7 +195,7 @@ describe('Meal Scan', () => {
         },
       }),
     )
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
     await user.click(await screen.findByRole('button', { name: 'Ajouter au journal' }))
@@ -169,7 +218,7 @@ describe('Meal Scan', () => {
         },
       }),
     )
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
     await user.click(await screen.findByRole('button', { name: 'Retirer abricot' }))
@@ -181,7 +230,7 @@ describe('Meal Scan', () => {
   it('propose la recherche manuelle quand rien ne correspond', async () => {
     const user = userEvent.setup()
     stubScan(task({ result: { suggestions: [suggestion({ label: 'zorglub', candidates: [] })] } }))
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
@@ -195,7 +244,7 @@ describe('Meal Scan', () => {
   it('annonce une photo sans aliment reconnu', async () => {
     const user = userEvent.setup()
     stubScan(task({ result: { suggestions: [] } }))
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
@@ -211,7 +260,7 @@ describe('Meal Scan', () => {
         error: 'Le fournisseur d’IA est injoignable.',
       }),
     )
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
@@ -227,10 +276,87 @@ describe('Meal Scan', () => {
         503,
       ),
     )
-    renderRoute('/meal-scan')
+    renderRoute('/scanner-repas')
 
     await analyze(user)
 
     expect(await screen.findByText(/L’analyse par IA est indisponible/)).toBeInTheDocument()
+  })
+})
+
+describe('disponibilité de l’IA', () => {
+  it('annonce l’indisponibilité dès l’ouverture, sans faire cadrer de photo', async () => {
+    // Le défaut qu'on corrige : l'écran ne le disait qu'après l'envoi.
+    stubFetch([...BASE_ROUTES, { match: '/ai/status/', respond: stubStatus(false) }], () =>
+      jsonResponse(paginated([])),
+    )
+    renderRoute('/scanner-repas')
+
+    expect(await screen.findByText(/L’analyse par IA est indisponible/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ouvrir la caméra' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Chercher un aliment' })).toBeInTheDocument()
+  })
+
+  it('laisse l’écran utilisable quand la disponibilité est inconnue', async () => {
+    // Une panne de cette requête ne doit pas condamner la fonctionnalité.
+    stubFetch(
+      [
+        ...BASE_ROUTES,
+        {
+          match: '/ai/status/',
+          respond: () => jsonResponse({ code: 'error', message: 'nope' }, 500),
+        },
+      ],
+      () => jsonResponse(paginated([])),
+    )
+    renderRoute('/scanner-repas')
+
+    expect(await screen.findByRole('button', { name: 'Ouvrir la caméra' })).toBeInTheDocument()
+  })
+})
+
+describe('choix du repas', () => {
+  it('propose le repas qui correspond à l’heure', async () => {
+    // Le premier de la liste revenait à proposer « Petit-déjeuner » à toute
+    // heure : un dîner scanné à 20 h y atterrissait sans qu'on le voie.
+    //
+    // L'heure n'est pas figée ici — des minuteurs simulés bloqueraient les
+    // attentes de Testing Library. La correspondance heure → repas est couverte
+    // exhaustivement par `meals.test.ts` ; ce test vérifie que l'écran s'en
+    // sert, à n'importe quelle heure.
+    const user = userEvent.setup()
+    stubScan()
+    renderRoute('/scanner-repas')
+
+    await analyze(user)
+
+    expect(await screen.findByLabelText('Ajouter à')).toHaveValue(defaultMealTypeId(MEALS))
+  })
+
+  it('journalise dans le repas retenu', async () => {
+    const user = userEvent.setup()
+    const spy = stubScan()
+    renderRoute('/scanner-repas')
+
+    await analyze(user)
+    await user.selectOptions(await screen.findByLabelText('Ajouter à'), '2')
+    await user.click(screen.getByRole('button', { name: 'Ajouter au journal' }))
+
+    await waitFor(() => expect(sent(spy, '/diary/entries/', 'POST')).toHaveLength(1))
+    const body = JSON.parse(String(sent(spy, '/diary/entries/', 'POST')[0]?.[1]?.body))
+    expect(body.meal_type_id).toBe(2)
+  })
+
+  it('le choix précède la liste des aliments', async () => {
+    // Il décide où tout atterrit : il n'a rien à faire sous une pile de cartes.
+    const user = userEvent.setup()
+    stubScan()
+    renderRoute('/scanner-repas')
+
+    await analyze(user)
+
+    const choix = await screen.findByLabelText('Ajouter à')
+    const premierAliment = screen.getByText('poulet')
+    expect(choix.compareDocumentPosition(premierAliment)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })

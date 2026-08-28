@@ -1,12 +1,29 @@
-import { Camera, Loader2, Trash2 } from 'lucide-react'
+import { Camera, CameraOff, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-
-import { prepareImage } from './image'
+import { captureFrame, prepareImage } from '@/features/camera/image'
+import { useCameraStream, type CameraStatus } from '@/features/camera/use-camera-stream'
+import { cn } from '@/lib/utils'
 
 /** Aligné sur la limite du backend (spec 05 §14). */
 export const MAX_IMAGES = 3
+
+/**
+ * Ce que dit l'application quand la caméra n'est pas disponible.
+ *
+ * Les états viennent du module caméra, partagés avec le lecteur de
+ * codes-barres ; les messages, eux, ne le sont pas : chacun doit dire quoi
+ * faire **ici**, et le repli n'est pas le même — un code se saisit à la main,
+ * une assiette non.
+ */
+const CAMERA_MESSAGES: Partial<Record<CameraStatus, string>> = {
+  denied:
+    'L’accès à la caméra a été refusé. Autorisez-le dans les réglages de votre navigateur, ou importez une photo.',
+  'no-camera': 'Aucune caméra n’a été trouvée sur cet appareil. Importez une photo.',
+  unsupported: 'Ce navigateur ne permet pas d’ouvrir la caméra. Importez une photo.',
+  error: 'La caméra n’a pas pu démarrer. Importez une photo.',
+}
 
 interface Photo {
   file: File
@@ -36,10 +53,15 @@ function release(preview: string | null): void {
 /**
  * Prise de vue.
  *
- * Un `<input type="file" capture>` plutôt qu'un flux vidéo : il n'y a rien à
- * viser en direct, et cet input ouvre l'appareil photo sur mobile comme le
- * sélecteur de fichiers sur desktop, sans permission caméra à demander ni
- * bibliothèque à charger.
+ * La caméra s'ouvre dans la page — c'est le geste attendu quand on a son
+ * assiette devant soi. L'import d'un fichier reste offert **en permanence**, et
+ * pas seulement en repli : un geste ne doit jamais être l'unique moyen d'agir
+ * (spec 06 §6). Il redevient le seul chemin quand la caméra est refusée,
+ * absente ou non supportée.
+ *
+ * Le flux est relâché sur chaque sortie : démontage, fermeture explicite, et
+ * démarrage de l'analyse. Personne ne filme son assiette pendant qu'on la lui
+ * décrit.
  */
 export function Capture({
   onAnalyze,
@@ -48,19 +70,49 @@ export function Capture({
   onAnalyze: (images: File[]) => void
   pending: boolean
 }) {
+  // Déstructuré plutôt que gardé en objet : `status` est une valeur de rendu,
+  // et la lire à travers un objet qui porte aussi des références brouille la
+  // distinction.
+  const { videoRef, status: cameraStatus, start: startCamera, stop: stopCamera } = useCameraStream()
   const inputRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [preparing, setPreparing] = useState(false)
+  const [shooting, setShooting] = useState(false)
 
   // Les URL d'aperçu vivent aussi dans une référence, pour être libérées au
-  // démontage : la page peut être quittée sans confirmer. Elle n'est écrite
-  // que depuis les gestionnaires d'événements, jamais pendant le rendu.
+  // démontage : la page peut être quittée sans confirmer. Elle n'est écrite que
+  // depuis les gestionnaires d'événements, jamais pendant le rendu.
   const previewsRef = useRef<string[]>([])
   useEffect(() => () => previewsRef.current.forEach(release), [])
 
   const apply = (next: Photo[]) => {
     previewsRef.current = next.map((photo) => photo.preview).filter((url) => url !== null)
     setPhotos(next)
+  }
+
+  const full = photos.length >= MAX_IMAGES
+  const live = cameraStatus === 'active' || cameraStatus === 'starting'
+  const cameraMessage = CAMERA_MESSAGES[cameraStatus]
+
+  const closeCamera = () => stopCamera()
+
+  const shoot = async () => {
+    const video = videoRef.current
+    if (!video) return
+
+    setShooting(true)
+    try {
+      const file = await captureFrame(video)
+      if (!file) return
+
+      const next = [...photos, { file, preview: previewUrl(file) }]
+      apply(next)
+      // Trois photos suffisent : on rend la caméra plutôt que de la laisser
+      // tourner sur un déclencheur devenu inerte.
+      if (next.length >= MAX_IMAGES) closeCamera()
+    } finally {
+      setShooting(false)
+    }
   }
 
   const addFiles = async (files: FileList | null) => {
@@ -83,7 +135,11 @@ export function Capture({
     apply(photos.filter((_, position) => position !== index))
   }
 
-  const full = photos.length >= MAX_IMAGES
+  const analyze = () => {
+    // Sortie n° 2 : l'analyse commence, la caméra n'a plus rien à filmer.
+    closeCamera()
+    onAnalyze(photos.map((photo) => photo.file))
+  }
 
   return (
     <div className="space-y-4">
@@ -91,27 +147,78 @@ export function Capture({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        capture="environment"
         multiple
         className="sr-only"
-        aria-label="Photo du repas"
+        aria-label="Importer une photo du repas"
         onChange={(event) => void addFiles(event.target.files)}
       />
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={full || preparing || pending}
-        onClick={() => inputRef.current?.click()}
-      >
-        {preparing ? (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+      {/* Toujours monté : `start()` a besoin de l'élément pour y attacher le
+          flux, et il n'existerait pas encore s'il n'apparaissait qu'ensuite. */}
+      <div className={cn('overflow-hidden rounded-xl border', !live && 'hidden')}>
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          aria-label="Aperçu de la caméra"
+          className="aspect-[4/3] w-full bg-black object-cover"
+        />
+      </div>
+
+      {cameraMessage && (
+        <p className="text-muted-foreground flex gap-2 text-sm">
+          <CameraOff aria-hidden="true" className="size-4 shrink-0" />
+          {cameraMessage}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {live ? (
+          <>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={cameraStatus !== 'active' || shooting || full}
+              onClick={() => void shoot()}
+            >
+              {shooting ? (
+                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              ) : (
+                <Camera aria-hidden="true" className="size-4" />
+              )}
+              Prendre la photo
+            </Button>
+            <Button type="button" variant="ghost" onClick={closeCamera}>
+              Fermer la caméra
+            </Button>
+          </>
         ) : (
-          <Camera aria-hidden="true" className="size-4" />
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            disabled={full || pending}
+            onClick={() => void startCamera()}
+          >
+            <Camera aria-hidden="true" className="size-4" />
+            Ouvrir la caméra
+          </Button>
         )}
-        {photos.length === 0 ? 'Prendre une photo' : 'Ajouter une photo'}
-      </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={full || preparing || pending}
+          onClick={() => inputRef.current?.click()}
+        >
+          {preparing ? (
+            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          ) : (
+            <ImageIcon aria-hidden="true" className="size-4" />
+          )}
+          Importer
+        </Button>
+      </div>
 
       {full && (
         <p className="text-muted-foreground text-xs">
@@ -153,7 +260,7 @@ export function Capture({
         type="button"
         className="w-full"
         disabled={photos.length === 0 || pending || preparing}
-        onClick={() => onAnalyze(photos.map((photo) => photo.file))}
+        onClick={analyze}
       >
         {pending && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}
         Analyser

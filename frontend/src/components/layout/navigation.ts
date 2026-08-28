@@ -50,7 +50,7 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 export const ADD_MENU_ITEMS: NavItem[] = [
   { to: '/aliments', label: 'Ajouter un aliment', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
-  { to: '/meal-scan', label: 'Meal Scan', Icon: ScanEye },
+  { to: '/scanner-repas', label: 'Scanner un repas', Icon: ScanEye },
   { to: '/recettes', label: 'Depuis une recette', Icon: ChefHat },
   { to: '/ajout-rapide', label: 'Ajout rapide', Icon: Zap },
 ]
@@ -65,9 +65,9 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/journal', label: 'Journal', Icon: BookOpen },
   { to: '/aliments', label: 'Aliments', Icon: Apple },
   { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
-  // Le menu `+` n'existe pas sur desktop : sans cette entrée, Meal Scan y
-  // serait inatteignable.
-  { to: '/meal-scan', label: 'Meal Scan', Icon: ScanEye },
+  // Le menu `+` n'existe pas sur desktop : sans cette entrée, le scan de repas
+  // y serait inatteignable.
+  { to: '/scanner-repas', label: 'Scanner un repas', Icon: ScanEye },
   { to: '/recettes', label: 'Recettes', Icon: ChefHat },
   { to: '/mes-repas', label: 'Mes repas', Icon: UtensilsCrossed },
   { to: '/courses', label: 'Courses', Icon: ShoppingCart },

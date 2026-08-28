@@ -1,7 +1,8 @@
 import { api } from '@/lib/api/client'
-import type { MealScanTask } from '@/lib/api/types'
+import type { AIStatus, MealScanTask } from '@/lib/api/types'
 
 export const taskQueryKey = (id: string) => ['tasks', id] as const
+export const aiStatusQueryKey = ['ai', 'status'] as const
 
 /** Nom du champ attendu par le backend pour les photos. */
 const IMAGES_FIELD = 'images'
@@ -24,3 +25,11 @@ export const startMealScan = (images: File[]) => {
 }
 
 export const fetchMealScanTask = (id: string) => api.get<MealScanTask>(`/tasks/${id}/`)
+
+/**
+ * L'IA est-elle disponible ?
+ *
+ * Interrogée à l'ouverture de l'écran : apprendre qu'une fonctionnalité est
+ * éteinte après avoir cadré sa photo est une mauvaise façon de l'apprendre.
+ */
+export const fetchAIStatus = () => api.get<AIStatus>('/ai/status/')

@@ -2,7 +2,13 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 
 import type { MealScanTask } from '@/lib/api/types'
 
-import { fetchMealScanTask, startMealScan, taskQueryKey } from './api'
+import {
+  aiStatusQueryKey,
+  fetchAIStatus,
+  fetchMealScanTask,
+  startMealScan,
+  taskQueryKey,
+} from './api'
 
 /** Intervalle d'interrogation pendant l'analyse. */
 export const POLL_INTERVAL_MS = 1500
@@ -34,5 +40,22 @@ export function useMealScanTask(taskId: string | null) {
     // l'onglet.
     refetchOnWindowFocus: false,
     gcTime: POLL_TIMEOUT_MS,
+  })
+}
+
+/**
+ * Disponibilité de l'IA, demandée à l'ouverture de l'écran.
+ *
+ * Un échec de cette requête ne doit pas condamner l'écran : la prise de vue
+ * reste offerte et l'indisponibilité, si elle est réelle, ressortira au moment
+ * de l'envoi.
+ */
+export function useAIStatus() {
+  return useQuery({
+    queryKey: aiStatusQueryKey,
+    queryFn: fetchAIStatus,
+    // Un coupe-circuit administrateur peut basculer pendant la session.
+    staleTime: 60_000,
+    retry: false,
   })
 }

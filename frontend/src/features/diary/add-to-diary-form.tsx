@@ -12,6 +12,7 @@ import type { FoodDetail } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
 
 import { today } from './dates'
+import { activeMeals, defaultMealTypeId } from './meals'
 import { useCreateEntry, useMealTypes } from './use-diary'
 
 /**
@@ -39,13 +40,11 @@ export function AddToDiaryForm({ food }: { food: FoodDetail }) {
   const [date, setDate] = useState(today)
   const [mealTypeId, setMealTypeId] = useState<string>('')
 
-  // `Array.isArray` plutôt qu'un simple `??` : une réponse de forme
-  // inattendue doit dégrader l'écran, pas le faire tomber.
-  const meals = useMemo(
-    () => (Array.isArray(mealTypes.data) ? mealTypes.data : []).filter((meal) => meal.is_active),
-    [mealTypes.data],
-  )
-  const selectedMeal = mealTypeId || (meals[0] ? String(meals[0].id) : '')
+  const meals = useMemo(() => activeMeals(mealTypes.data), [mealTypes.data])
+  // Le repas proposé suit l'heure : le premier de la liste revenait à proposer
+  // « Petit-déjeuner » à toute heure.
+  const suggestedMeal = useMemo(() => defaultMealTypeId(meals), [meals])
+  const selectedMeal = mealTypeId || suggestedMeal
 
   // L'aperçu n'a de sens que pour une unité dont on connaît le rapport à la
   // quantité de référence. Pour une portion, le backend seul le connaît.

@@ -91,7 +91,7 @@ export const routes = [
       { path: 'mes-aliments', element: <MyFoodsPage /> },
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
-      { path: 'meal-scan', element: <LazyMealScanPage /> },
+      { path: 'scanner-repas', element: <LazyMealScanPage /> },
       { path: 'ajout-rapide', element: <QuickAddPage /> },
       { path: 'recettes', element: <RecipesPage /> },
       { path: 'recettes/nouvelle', element: <NewRecipePage /> },

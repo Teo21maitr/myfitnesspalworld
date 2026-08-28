@@ -1,6 +1,6 @@
 import { Loader2, Sparkles, TriangleAlert } from 'lucide-react'
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { SelectField } from '@/components/form/select-field'
@@ -9,11 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { today } from '@/features/diary/dates'
+import { activeMeals, defaultMealTypeId } from '@/features/diary/meals'
 import { useCreateEntry, useMealTypes } from '@/features/diary/use-diary'
 import { Capture } from '@/features/meal-scan/capture'
 import { initialLines, loggableLines, type ScanLine } from '@/features/meal-scan/lines'
 import { SuggestionCard } from '@/features/meal-scan/suggestion-card'
-import { isRunning, useMealScanTask, useStartMealScan } from '@/features/meal-scan/use-meal-scan'
+import {
+  isRunning,
+  useAIStatus,
+  useMealScanTask,
+  useStartMealScan,
+} from '@/features/meal-scan/use-meal-scan'
 import { ApiError } from '@/lib/api/client'
 import type { MealScanSuggestion } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
@@ -22,7 +28,10 @@ const AI_DISABLED_MESSAGE =
   'L’analyse par IA est indisponible pour le moment. Le reste de l’application fonctionne normalement : vous pouvez ajouter vos aliments par la recherche.'
 
 /**
- * Meal Scan (spec 01, spec 07 §5).
+ * Scanner un repas (spec 01, spec 07 §5).
+ *
+ * Les identifiants de code restent en anglais — `meal-scan`, `/ai/meal-scan/` —
+ * comme `shopping` sert « Courses » et `recipes` « Recettes ».
  *
  * Photo, puis suggestions, puis correction, puis journal. Rien n'est écrit
  * tant que l'utilisateur n'a pas confirmé, et les valeurs nutritionnelles
@@ -33,6 +42,7 @@ export function MealScanPage() {
   const start = useStartMealScan()
   const create = useCreateEntry()
   const mealTypes = useMealTypes()
+  const aiStatus = useAIStatus()
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const task = useMealScanTask(taskId)
@@ -55,14 +65,19 @@ export function MealScanPage() {
     setLines(initialLines(suggestions))
   }
 
-  const meals = (Array.isArray(mealTypes.data) ? mealTypes.data : []).filter(
-    (meal) => meal.is_active,
-  )
-  const selectedMeal = mealTypeId || String(meals[0]?.id ?? '')
+  const meals = activeMeals(mealTypes.data)
+  // Calculé à l'arrivée des repas, pas à chaque rendu : la proposition ne doit
+  // pas changer sous les doigts au passage d'une heure.
+  const suggestedMeal = useMemo(() => defaultMealTypeId(meals), [meals])
+  const selectedMeal = mealTypeId || suggestedMeal
 
   const analyzing = start.isPending || isRunning(task.data) || (Boolean(taskId) && task.isLoading)
   const failed = task.data?.status === 'failed'
-  const aiDisabled = start.error instanceof ApiError && start.error.code === 'ai_disabled'
+  // Connue d'avance quand le serveur a répondu, constatée à l'envoi sinon :
+  // l'IA peut être coupée entre l'ouverture de l'écran et l'analyse.
+  const aiDisabled =
+    aiStatus.data?.enabled === false ||
+    (start.error instanceof ApiError && start.error.code === 'ai_disabled')
 
   const reset = () => {
     setTaskId(null)
@@ -104,7 +119,7 @@ export function MealScanPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Analyser une photo</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Scanner un repas</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Le modèle reconnaît les aliments et estime les quantités. Les calories, elles, viennent
           toujours de la fiche que vous choisissez.
@@ -115,7 +130,12 @@ export function MealScanPage() {
         <Card>
           <CardContent className="flex gap-3 pt-6 text-sm">
             <TriangleAlert aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
-            <p>{AI_DISABLED_MESSAGE}</p>
+            <div className="space-y-2">
+              <p>{AI_DISABLED_MESSAGE}</p>
+              <Link to="/aliments" className="text-primary inline-block underline">
+                Chercher un aliment
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -126,7 +146,7 @@ export function MealScanPage() {
         </p>
       )}
 
-      {taskId === null && (
+      {taskId === null && !aiDisabled && (
         <Card>
           <CardHeader>
             <CardTitle as="h2">Photo du repas</CardTitle>
@@ -192,6 +212,27 @@ export function MealScanPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Avant les aliments, pas après : c'est le choix qui décide où
+                tout va atterrir, et il n'a rien à faire sous une pile de
+                cartes qu'il faut faire défiler. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SelectField
+                label="Ajouter à"
+                value={selectedMeal}
+                onChange={(event) => setMealTypeId(event.target.value)}
+                options={meals.map((meal) => ({ value: String(meal.id), label: meal.name }))}
+              />
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="meal-scan-date">Date</Label>
+                <Input
+                  id="meal-scan-date"
+                  type="date"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                />
+              </div>
+            </div>
+
             <ul className="space-y-3">
               {suggestions.map((suggestion, index) => {
                 const line = lines[index]
@@ -218,24 +259,6 @@ export function MealScanPage() {
                 )
               })}
             </ul>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="meal-scan-date">Date</Label>
-                <Input
-                  id="meal-scan-date"
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                />
-              </div>
-              <SelectField
-                label="Repas"
-                value={selectedMeal}
-                onChange={(event) => setMealTypeId(event.target.value)}
-                options={meals.map((meal) => ({ value: String(meal.id), label: meal.name }))}
-              />
-            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button
