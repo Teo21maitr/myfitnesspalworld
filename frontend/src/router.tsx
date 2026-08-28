@@ -13,6 +13,7 @@ import { EditFoodPage } from '@/pages/foods/edit-food-page'
 import { FoodDetailPage } from '@/pages/foods/food-detail-page'
 import { FoodSearchPage } from '@/pages/foods/food-search-page'
 import { QuickAddPage } from '@/pages/diary/quick-add-page'
+import { LazyLabelScanPage } from '@/pages/foods/lazy-label-scan-page'
 import { LazyScannerPage } from '@/pages/foods/lazy-scanner-page'
 import { LazyMealScanPage } from '@/pages/lazy-meal-scan-page'
 import { MyFoodsPage } from '@/pages/foods/my-foods-page'
@@ -92,6 +93,7 @@ export const routes = [
       { path: 'mes-aliments/:id', element: <EditFoodPage /> },
       { path: 'scanner', element: <LazyScannerPage /> },
       { path: 'scanner-repas', element: <LazyMealScanPage /> },
+      { path: 'scanner-etiquette', element: <LazyLabelScanPage /> },
       { path: 'ajout-rapide', element: <QuickAddPage /> },
       { path: 'recettes', element: <RecipesPage /> },
       { path: 'recettes/nouvelle', element: <NewRecipePage /> },

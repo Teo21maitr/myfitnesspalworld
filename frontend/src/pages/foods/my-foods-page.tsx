@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, ScanText, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -31,10 +31,21 @@ export function MyFoodsPage() {
           </p>
         </div>
         {!creating && (
-          <Button type="button" size="sm" onClick={() => setCreating(true)}>
-            <Plus aria-hidden="true" />
-            Créer
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            {/* Saisir quinze champs à la main quand l'étiquette est sous les
+                yeux n'a pas de sens : c'est ici qu'on vient créer un aliment,
+                donc c'est ici que le raccourci doit être. */}
+            <Button asChild type="button" size="sm" variant="outline">
+              <Link to="/scanner-etiquette">
+                <ScanText aria-hidden="true" />
+                Depuis l’étiquette
+              </Link>
+            </Button>
+            <Button type="button" size="sm" onClick={() => setCreating(true)}>
+              <Plus aria-hidden="true" />
+              Créer
+            </Button>
+          </div>
         )}
       </div>
 

@@ -26,6 +26,9 @@ export interface FoodPayload {
     carbohydrates_g?: string | null
     fat_g?: string | null
     fiber_g?: string | null
+    // Déclarés sur toute étiquette européenne, et portés par le modèle.
+    sugars_g?: string | null
+    salt_g?: string | null
   }
 }
 

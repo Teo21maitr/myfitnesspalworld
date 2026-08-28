@@ -10,7 +10,7 @@ import { SelectField } from '@/components/form/select-field'
 import { TextField } from '@/components/form/text-field'
 import { Button } from '@/components/ui/button'
 import { useApiFormErrors } from '@/features/auth/use-api-form-errors'
-import type { FoodDetail } from '@/lib/api/types'
+import type { FoodDetail, LabelDraft } from '@/lib/api/types'
 
 import { useCreateFood, useUpdateFood } from './use-foods'
 
@@ -47,6 +47,8 @@ const foodSchema = z.object({
   carbohydrates_g: optionalDecimal,
   fat_g: optionalDecimal,
   fiber_g: optionalDecimal,
+  sugars_g: optionalDecimal,
+  salt_g: optionalDecimal,
 })
 
 type FoodValues = z.infer<typeof foodSchema>
@@ -66,6 +68,27 @@ const FIELDS = [
   'energy_kcal',
 ] as const
 
+/** Valeurs d'un brouillon lu sur une étiquette, vides pour ce qui manque. */
+function fromDraft(draft: LabelDraft): FoodValues {
+  const round = (value: string | null | undefined) =>
+    value === null || value === undefined ? '' : String(Math.round(Number(value) * 100) / 100)
+
+  return {
+    name: draft.name,
+    brand: draft.brand,
+    barcode: draft.barcode,
+    reference_amount: String(Math.round(Number(draft.reference_amount))),
+    reference_unit: draft.reference_unit === 'unit' ? 'g' : draft.reference_unit,
+    energy_kcal: round(draft.nutrition.energy_kcal),
+    protein_g: round(draft.nutrition.protein_g),
+    carbohydrates_g: round(draft.nutrition.carbohydrates_g),
+    fat_g: round(draft.nutrition.fat_g),
+    fiber_g: round(draft.nutrition.fiber_g),
+    sugars_g: round(draft.nutrition.sugars_g),
+    salt_g: round(draft.nutrition.salt_g),
+  }
+}
+
 function toDefaults(food?: FoodDetail, barcode?: string): FoodValues {
   const round = (value: string | null | undefined) =>
     value === null || value === undefined ? '' : String(Math.round(Number(value) * 100) / 100)
@@ -81,6 +104,8 @@ function toDefaults(food?: FoodDetail, barcode?: string): FoodValues {
     carbohydrates_g: round(food?.nutrition?.carbohydrates_g),
     fat_g: round(food?.nutrition?.fat_g),
     fiber_g: round(food?.nutrition?.fiber_g),
+    sugars_g: round(food?.nutrition?.sugars_g),
+    salt_g: round(food?.nutrition?.salt_g),
   }
 }
 
@@ -93,7 +118,16 @@ function toDefaults(food?: FoodDetail, barcode?: string): FoodValues {
  * `barcode` permet de prérenseigner le code d'un produit que le scan n'a pas
  * trouvé, pour que l'utilisateur n'ait pas à le recopier (spec 01 §10).
  */
-export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: string }) {
+export function FoodForm({
+  food,
+  barcode,
+  draft,
+}: {
+  food?: FoodDetail
+  barcode?: string
+  /** Brouillon lu sur une étiquette. Les champs restent modifiables. */
+  draft?: LabelDraft
+}) {
   const navigate = useNavigate()
   const create = useCreateFood()
   const update = useUpdateFood(food?.id ?? 0)
@@ -106,7 +140,7 @@ export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: strin
     formState: { errors, isSubmitting },
   } = useForm<FoodValues>({
     resolver: zodResolver(foodSchema),
-    defaultValues: toDefaults(food, barcode),
+    defaultValues: draft ? fromDraft(draft) : toDefaults(food, barcode),
   })
 
   const { formError, setFormError, handleApiError } = useApiFormErrors<FoodValues>(setError)
@@ -129,6 +163,8 @@ export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: strin
           carbohydrates_g: optional(values.carbohydrates_g),
           fat_g: optional(values.fat_g),
           fiber_g: optional(values.fiber_g),
+          sugars_g: optional(values.sugars_g),
+          salt_g: optional(values.salt_g),
         },
       })
       .then((saved) => {
@@ -194,6 +230,13 @@ export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: strin
           error={errors.carbohydrates_g}
         />
         <NumberField
+          label="dont sucres"
+          unit="g"
+          step="0.1"
+          registration={register('sugars_g')}
+          error={errors.sugars_g}
+        />
+        <NumberField
           label="Lipides"
           unit="g"
           step="0.1"
@@ -206,6 +249,13 @@ export function FoodForm({ food, barcode }: { food?: FoodDetail; barcode?: strin
           step="0.1"
           registration={register('fiber_g')}
           error={errors.fiber_g}
+        />
+        <NumberField
+          label="Sel"
+          unit="g"
+          step="0.01"
+          registration={register('salt_g')}
+          error={errors.salt_g}
         />
       </div>
 

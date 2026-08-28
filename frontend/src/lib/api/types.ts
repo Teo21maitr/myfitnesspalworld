@@ -542,7 +542,7 @@ export type TaskStatus = 'pending' | 'processing' | 'success' | 'failed'
 
 export interface AsyncTask<TResult = unknown> {
   id: string
-  task_type: 'meal_scan'
+  task_type: 'meal_scan' | 'label_scan'
   status: TaskStatus
   progress: number
   result: TResult | null
@@ -591,3 +591,43 @@ export interface MealScanResult {
 }
 
 export type MealScanTask = AsyncTask<MealScanResult>
+
+/**
+ * Nutriments qu'une étiquette européenne déclare et que le modèle sait porter.
+ *
+ * Les acides gras saturés, pourtant obligatoires sur l'étiquette, n'ont pas de
+ * colonne : la spec 01 §4 ne les prévoit pas.
+ */
+export const LABEL_NUTRIENTS = [
+  'energy_kcal',
+  'protein_g',
+  'carbohydrates_g',
+  'sugars_g',
+  'fat_g',
+  'fiber_g',
+  'salt_g',
+  'sodium_mg',
+] as const
+
+export type LabelNutrient = (typeof LABEL_NUTRIENTS)[number]
+
+/** Brouillon d'aliment lu sur une étiquette, à vérifier avant enregistrement. */
+export interface LabelDraft {
+  name: string
+  brand: string
+  barcode: string
+  reference_amount: string
+  reference_unit: UnitType
+  /** `null` pour ce que la photo n'a pas donné — jamais 0 (spec 01 §8). */
+  nutrition: Record<LabelNutrient, string | null>
+}
+
+export interface LabelScanResult {
+  /** Colonne lue. `unknown` : aucune valeur n'a pu être reprise. */
+  basis: '100g' | '100ml' | 'unknown'
+  draft: LabelDraft
+  /** Nutriments que la photo n'a pas donnés, nommés plutôt que devinés. */
+  unreadable: LabelNutrient[]
+}
+
+export type LabelScanTask = AsyncTask<LabelScanResult>
