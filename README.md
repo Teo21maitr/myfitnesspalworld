@@ -31,7 +31,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
 - [Liste de courses](#liste-de-courses)
-- [Meal Scan et le socle IA](#meal-scan-et-le-socle-ia)
+- [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -160,6 +160,7 @@ Migrations existantes :
 | `social/0002_alter_sharepermission_resource_type` | la liste de courses devient partageable |
 | `common/0002_app_settings_and_async_tasks` | `AppSetting`, `AsyncTask` |
 | `ai/0001_initial` | `AITaskLog` |
+| `accounts/0004_usersettings_food_search_languages` | langues de recherche de produits |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -394,6 +395,26 @@ elle demande un clic explicite sur « Chercher sur Open Food Facts ».
 
 `OFF_ENABLED=False` coupe la source sans redéploiement ; la recherche locale, Ciqual et les
 aliments personnels continuent de fonctionner normalement.
+
+### Langues de recherche, et ce qu'elles ne corrigent pas
+
+Open Food Facts indexe le nom des produits **par langue**. Chercher uniquement en français rend
+donc invisibles les produits nommés ailleurs — alors que le scan de code-barres, lui, n'a jamais eu
+cette restriction : on trouve un produit suédois en scannant son emballage, mais pas en tapant son
+nom. Les langues sont un réglage par compte, dans « Mon compte », `fr` et `en` par défaut. Ajouter
+le suédois double environ le nombre de résultats : `filmjölk` passe de 24 à 45.
+
+**La couverture, elle, ne se règle pas.** Elle varie fortement selon les pays :
+
+| Enseigne | Produits référencés |
+| --- | --- |
+| ICA — premier distributeur suédois | 1 461 |
+| Garant | 804 |
+| Änglamark | 153 |
+| Carrefour, U, Auchan | ≥ 10 000 chacun |
+
+Un produit absent de la source reste absent quelle que soit la langue interrogée. La réponse est la
+création manuelle, avec le code-barres prérempli.
 
 ### Trois pièges de conversion
 
@@ -744,9 +765,42 @@ aliments, les recettes, les repas enregistrés et les listes appellent tous.
 L'extraction n'a demandé aucune modification des tests existants — c'est ce qui la distingue d'une
 réécriture.
 
-## Meal Scan et le socle IA
+## Scanner un repas et le socle IA
 
 Photographier une assiette, laisser un modèle nommer ce qu'il y voit, corriger, journaliser.
+
+### Ce qu'il faut pour que ça marche
+
+**La fonctionnalité est éteinte tant que trois variables ne sont pas posées.** Sans elles, chaque
+appel répond `503 ai_disabled` — c'est correct, et c'est exactement ce qui se produit sur un `.env`
+copié avant l'arrivée de l'IA :
+
+```text
+AI_ENABLED=True
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=…
+```
+
+Puis `docker compose up -d --force-recreate backend worker`. L'écran interroge `GET /ai/status/` à
+son ouverture et annonce l'indisponibilité **avant** de faire cadrer une photo : l'apprendre au
+moment de l'envoi était le défaut de la première version.
+
+`AI_PROVIDER=fake` remplace le modèle par deux aliments fixes — utile pour travailler l'interface
+sans clé. La production refuse cette valeur.
+
+### La prise de vue
+
+La caméra s'ouvre dans la page. `<input type="file" capture>` ne suffisait pas : les navigateurs de
+bureau l'ignorent et n'offrent qu'un sélecteur de fichiers.
+
+Le cycle de vie du flux vit dans `useCameraStream`, **partagé avec le lecteur de codes-barres**
+plutôt que réécrit à côté. Une caméra ne s'éteint pas parce qu'on a changé d'écran : quatre sorties
+doivent l'arrêter — démontage, fermeture explicite, démarrage de l'analyse, et **autorisation
+accordée après le départ**, quand `getUserMedia` résout sur un composant démonté. En manquer une
+laisse le voyant allumé sans qu'aucune erreur ne le signale.
+
+L'import de fichier reste offert **en permanence**, pas seulement en repli : un geste n'est jamais
+l'unique moyen d'agir (spec 06 §6).
 
 ### Le modèle propose des mots, la base fournit les calories
 
@@ -851,10 +905,10 @@ npm run build             # build de production
 ### Bout en bout (Playwright)
 
 Dix parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
-partage, liste de courses et Meal Scan. Playwright démarre lui-même le backend et un build servi en
+partage, liste de courses et scan de repas — ce dernier avec une caméra simulée par Chromium. Playwright démarre lui-même le backend et un build servi en
 statique.
 
-Le parcours Meal Scan force `AI_PROVIDER=fake` et `CELERY_TASK_ALWAYS_EAGER=True` : l'analyse
+Le parcours de scan de repas force `AI_PROVIDER=fake` et `CELERY_TASK_ALWAYS_EAGER=True` : l'analyse
 devient déterministe et ne réclame ni clé d'API ni worker. Les deux valeurs sont refusées au
 démarrage en production.
 

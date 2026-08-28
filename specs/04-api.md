@@ -303,8 +303,15 @@ une tâche planifiée la supprime.
 ## 10. IA
 
 ```text
+GET  /ai/status/
 POST /ai/meal-scan/
 ```
+
+`GET /ai/status/` répond `{"enabled": bool}`. Il existe pour que l'interface
+annonce l'indisponibilité **avant** de faire cadrer une photo : l'apprendre au
+moment de l'envoi, après avoir préparé son cliché, est une mauvaise façon de
+l'apprendre. Il ne dit rien du fournisseur, du modèle ni de la présence d'une
+clé — ce sont des détails de configuration, pas des informations utilisateur.
 
 `POST /ai/voice-log/` n'existe pas encore : la saisie vocale viendra sur le même
 socle.

@@ -204,6 +204,28 @@ OFF :
 - appel séparé et throttlé ;
 - pas chaque frappe.
 
+### Langues interrogées
+
+Open Food Facts indexe le nom des produits **par langue**. Restreindre la
+recherche au français rend donc invisibles les produits nommés ailleurs, alors
+même que le scan de code-barres, lui, n'a jamais eu cette restriction : on
+trouve un produit suédois en scannant son emballage, mais pas en tapant son nom.
+
+Les langues sont un **réglage par compte** — `UserSettings.food_search_languages`,
+`fr` et `en` par défaut, cinq au maximum, prises dans un catalogue que le serveur
+expose avec les réglages. On ne fait pas ses courses toujours dans le même pays.
+
+Mesuré sur l'API réelle, l'ajout du suédois double environ le nombre de
+résultats : `filmjölk` passe de 24 à 45, `knäckebröd` de 20 à 55.
+
+### Ce que le réglage ne corrige pas
+
+La **couverture** d'Open Food Facts varie fortement selon les pays. ICA, premier
+distributeur suédois, y compte environ 1 500 produits, quand chaque enseigne
+française en dépasse 10 000. Un produit absent de la source reste absent quelle
+que soit la langue interrogée : la réponse est la création manuelle, que la
+lecture d'étiquette doit rendre rapide.
+
 ## 6. USDA FoodData Central
 
 Fallback facultatif.
