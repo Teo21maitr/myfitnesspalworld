@@ -309,3 +309,29 @@ def test_une_panne_de_recherche_repond_503(auth_client):
 
     assert response.status_code == 503
     assert response.data["code"] == "external_source_unavailable"
+
+
+@responses.activate
+def test_la_recherche_elargie_utilise_les_langues_du_compte(auth_client, active_user):
+    """Le réglage du compte décide de ce que la recherche voit (spec 11 §3)."""
+    active_user.settings.food_search_languages = ["fr", "sv"]
+    active_user.settings.save(update_fields=["food_search_languages"])
+    responses.add(responses.GET, SEARCH_URL, json={"hits": []}, status=200)
+
+    auth_client.get(EXTERNAL_SEARCH_URL, {"q": "filmjolk"})
+
+    assert responses.calls[0].request.params["langs"] == "fr,sv"
+
+
+@responses.activate
+def test_les_langues_d_un_autre_compte_ne_fuitent_pas(auth_client, active_user, db):
+    autre = User.objects.create_user(
+        username="autre", password="un-mot-de-passe-solide-1", status=UserStatus.ACTIVE
+    )
+    autre.settings.food_search_languages = ["de", "pl"]
+    autre.settings.save(update_fields=["food_search_languages"])
+    responses.add(responses.GET, SEARCH_URL, json={"hits": []}, status=200)
+
+    auth_client.get(EXTERNAL_SEARCH_URL, {"q": "filmjolk"})
+
+    assert responses.calls[0].request.params["langs"] == "fr,en"

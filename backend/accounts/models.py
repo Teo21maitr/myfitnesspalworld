@@ -338,6 +338,16 @@ class ThemeMode(models.TextChoices):
     SYSTEM = "system", "Système"
 
 
+def default_food_search_languages() -> list[str]:
+    """Langues de recherche d'un nouveau compte.
+
+    Volontairement écrit ici plutôt qu'importé de `nutrition` : une migration
+    de `accounts` ne doit pas dépendre du chargement d'une autre application.
+    Un test vérifie que cette valeur ne diverge pas du catalogue de référence.
+    """
+    return ["fr", "en"]
+
+
 class UserSettings(models.Model):
     """Préférences applicatives de l'utilisateur (spec 03 §1)."""
 
@@ -356,6 +366,16 @@ class UserSettings(models.Model):
         default=ThemeMode.SYSTEM,
     )
     date_format = models.CharField("format de date", max_length=20, default="DD/MM/YYYY")
+    food_search_languages = models.JSONField(
+        "langues de recherche de produits",
+        default=default_food_search_languages,
+        blank=True,
+        help_text=(
+            "Langues interrogées lors d'une recherche de produits de marque. "
+            "Open Food Facts indexe les noms par langue : sans le suédois, "
+            "un produit nommé en suédois reste introuvable."
+        ),
+    )
     # Renseignés par les étapes ultérieures (dashboard, confidentialité).
     dashboard_config = models.JSONField("configuration du dashboard", default=dict, blank=True)
     privacy_config = models.JSONField("configuration de confidentialité", default=dict, blank=True)

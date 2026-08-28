@@ -145,7 +145,15 @@ def test_un_compte_suspendu_n_accede_pas_au_profil(active_user):
 def test_lecture_des_parametres(auth_client):
     body = auth_client.get(SETTINGS_URL).json()
 
-    assert body == {"language": "fr", "theme_mode": "system", "date_format": "DD/MM/YYYY"}
+    # Le catalogue des langues varie ; le reste du contrat est figé.
+    catalogue = body.pop("available_food_search_languages")
+    assert body == {
+        "language": "fr",
+        "theme_mode": "system",
+        "date_format": "DD/MM/YYYY",
+        "food_search_languages": ["fr", "en"],
+    }
+    assert {"code": "sv", "label": "Suédois"} in catalogue
 
 
 @pytest.mark.parametrize("theme", ["light", "dark", "system"])
@@ -235,3 +243,76 @@ def test_supprimer_son_compte_n_affecte_pas_les_autres(auth_client, active_user,
     auth_client.delete(ACCOUNT_URL, {"username_confirmation": active_user.username})
 
     assert User.objects.filter(pk=other_user.pk).exists()
+
+
+class TestFoodSearchLanguages:
+    """Langues de recherche de produits (spec 11 §3).
+
+    Réglage par compte : on ne cherche pas les mêmes produits selon le pays où
+    l'on fait ses courses.
+    """
+
+    def test_un_nouveau_compte_cherche_en_francais_et_en_anglais(self, active_user):
+        assert active_user.settings.food_search_languages == ["fr", "en"]
+
+    def test_le_defaut_du_modele_suit_le_catalogue(self):
+        """Le défaut est écrit dans `accounts` pour ne pas faire dépendre une
+        migration d'une autre application. Ce test empêche les deux de
+        diverger."""
+        from accounts.models import default_food_search_languages
+        from nutrition.services.off_client import (
+            DEFAULT_SEARCH_LANGUAGES,
+            SUPPORTED_SEARCH_LANGUAGES,
+        )
+
+        assert default_food_search_languages() == list(DEFAULT_SEARCH_LANGUAGES)
+        assert all(code in SUPPORTED_SEARCH_LANGUAGES for code in DEFAULT_SEARCH_LANGUAGES)
+
+    def test_le_reglage_se_modifie(self, active_user):
+        response = client_for(active_user).patch(
+            SETTINGS_URL, {"food_search_languages": ["fr", "sv"]}, format="json"
+        )
+
+        assert response.status_code == 200
+        active_user.settings.refresh_from_db()
+        assert active_user.settings.food_search_languages == ["fr", "sv"]
+
+    def test_le_catalogue_accompagne_les_reglages(self, active_user):
+        """Renvoyé par le serveur plutôt que recopié dans le frontend."""
+        payload = client_for(active_user).get(SETTINGS_URL).json()
+
+        codes = [entry["code"] for entry in payload["available_food_search_languages"]]
+        assert "sv" in codes
+        assert all("label" in entry for entry in payload["available_food_search_languages"])
+
+    def test_une_langue_inconnue_est_refusee(self, active_user):
+        response = client_for(active_user).patch(
+            SETTINGS_URL, {"food_search_languages": ["fr", "klingon"]}, format="json"
+        )
+
+        assert response.status_code == 400
+
+    def test_une_liste_vide_est_refusee(self, active_user):
+        """Chercher dans aucune langue ne renverrait rien."""
+        response = client_for(active_user).patch(
+            SETTINGS_URL, {"food_search_languages": []}, format="json"
+        )
+
+        assert response.status_code == 400
+
+    def test_trop_de_langues_est_refuse(self, active_user):
+        response = client_for(active_user).patch(
+            SETTINGS_URL,
+            {"food_search_languages": ["fr", "en", "sv", "de", "es", "it"]},
+            format="json",
+        )
+
+        assert response.status_code == 400
+
+    def test_les_doublons_sont_retires_sans_changer_l_ordre(self, active_user):
+        response = client_for(active_user).patch(
+            SETTINGS_URL, {"food_search_languages": ["sv", "fr", "sv"]}, format="json"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["food_search_languages"] == ["sv", "fr"]

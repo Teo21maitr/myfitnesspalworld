@@ -20,6 +20,7 @@ from accounts.models import (
 )
 from accounts.services.registration import username_is_available
 from common.dates import age_on
+from nutrition.services.off_client import MAX_SEARCH_LANGUAGES, SUPPORTED_SEARCH_LANGUAGES
 
 USERNAME_TAKEN_MESSAGE = "Ce nom d’utilisateur est déjà utilisé."
 
@@ -243,14 +244,42 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     """Préférences applicatives (spec 03 §1)."""
 
     theme_mode = serializers.ChoiceField(choices=ThemeMode.choices)
+    food_search_languages = serializers.ListField(
+        child=serializers.ChoiceField(choices=sorted(SUPPORTED_SEARCH_LANGUAGES)),
+        min_length=1,
+        max_length=MAX_SEARCH_LANGUAGES,
+        required=False,
+    )
+    available_food_search_languages = serializers.SerializerMethodField()
 
     class Meta:
         from accounts.models import UserSettings
 
         model = UserSettings
-        fields = ("language", "theme_mode", "date_format")
+        fields = (
+            "language",
+            "theme_mode",
+            "date_format",
+            "food_search_languages",
+            "available_food_search_languages",
+        )
         # L'application est en français uniquement (spec 00 §8).
         read_only_fields = ("language",)
+
+    def get_available_food_search_languages(self, obj) -> list[dict[str, str]]:
+        """Catalogue des langues proposables, libellés compris.
+
+        Renvoyé avec les réglages plutôt que recopié dans le frontend : une
+        liste tenue à deux endroits finit par diverger.
+        """
+        return [
+            {"code": code, "label": label}
+            for code, label in sorted(SUPPORTED_SEARCH_LANGUAGES.items(), key=lambda x: x[1])
+        ]
+
+    def validate_food_search_languages(self, value: list[str]) -> list[str]:
+        """Retire les doublons sans changer l'ordre choisi."""
+        return list(dict.fromkeys(value))
 
 
 class ChangePasswordSerializer(PasswordPairMixin, serializers.Serializer):

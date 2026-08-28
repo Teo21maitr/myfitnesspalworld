@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ChangePasswordForm } from '@/features/account/change-password-form'
 import { DeleteAccountSection } from '@/features/account/delete-account-section'
 import { ProfileForm } from '@/features/account/profile-form'
+import { SearchLanguagesSection } from '@/features/account/search-languages-section'
 import { SessionSection } from '@/features/account/session-section'
 import { useMe } from '@/features/auth/use-auth'
 import { HealthCard } from '@/features/health/health-card'
@@ -62,6 +63,8 @@ export function AccountPage() {
       </div>
 
       <ProfileForm user={user} />
+      <SearchLanguagesSection />
+
       <ChangePasswordForm />
       <SessionSection />
       {/* Diagnostic technique : il a quitté l'accueil, devenu le tableau de

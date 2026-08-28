@@ -124,7 +124,18 @@ export const BASE_ROUTES = [
   {
     match: '/profile/settings/',
     respond: () =>
-      jsonResponse({ language: 'fr', theme_mode: 'system', date_format: 'DD/MM/YYYY' }),
+      jsonResponse({
+        language: 'fr',
+        theme_mode: 'system',
+        date_format: 'DD/MM/YYYY',
+        food_search_languages: ['fr', 'en'],
+        available_food_search_languages: [
+          { code: 'de', label: 'Allemand' },
+          { code: 'en', label: 'Anglais' },
+          { code: 'fr', label: 'Français' },
+          { code: 'sv', label: 'Suédois' },
+        ],
+      }),
   },
   { match: '/meal-types/', respond: () => jsonResponse(MEAL_TYPES) },
 ]

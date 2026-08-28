@@ -18,6 +18,7 @@ licence ODbL.
 """
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import requests
@@ -44,6 +45,34 @@ PRODUCT_FIELDS = (
 )
 
 SEARCH_FIELDS = ("code", "product_name", "brands")
+
+#: Langues proposables pour la recherche de produits.
+#:
+#: Open Food Facts indexe le nom des produits par langue : une recherche
+#: restreinte au français ne voit tout simplement pas les produits nommés en
+#: suédois ou en allemand. La liste reste courte et européenne — c'est là que la
+#: base a de la matière — plutôt qu'exhaustive et inutilisable.
+SUPPORTED_SEARCH_LANGUAGES: dict[str, str] = {
+    "fr": "Français",
+    "en": "Anglais",
+    "de": "Allemand",
+    "es": "Espagnol",
+    "it": "Italien",
+    "nl": "Néerlandais",
+    "pt": "Portugais",
+    "sv": "Suédois",
+    "da": "Danois",
+    "nb": "Norvégien",
+    "fi": "Finnois",
+    "pl": "Polonais",
+}
+
+#: Langues interrogées par défaut. Le français parce que l'application l'est,
+#: l'anglais parce que beaucoup de produits importés n'ont que ce nom-là.
+DEFAULT_SEARCH_LANGUAGES = ("fr", "en")
+
+#: Au-delà, la requête s'élargit sans gagner en pertinence.
+MAX_SEARCH_LANGUAGES = 5
 
 #: Noms des budgets globaux, partagés par tous les comptes.
 PRODUCT_BUDGET = "off:product"
@@ -153,14 +182,22 @@ def fetch_product(barcode: str) -> dict:
     return product
 
 
-def search_products(query: str, limit: int = 25) -> list[ProductCandidate]:
-    """Cherche des produits par texte. Renvoie une liste éventuellement vide."""
+def search_products(
+    query: str, limit: int = 25, languages: Sequence[str] | None = None
+) -> list[ProductCandidate]:
+    """Cherche des produits par texte. Renvoie une liste éventuellement vide.
+
+    `languages` désigne les langues de nom de produit interrogées. Les coder en
+    dur sur le français rendait invisibles les produits nommés dans une autre
+    langue — un séjour à l'étranger suffit à s'en apercevoir, et le scan de
+    code-barres, lui, n'a jamais eu cette restriction.
+    """
     url = f"{settings.OFF_SEARCH_URL}/search"
     params = {
         "q": query,
         "page_size": limit,
         "fields": ",".join(SEARCH_FIELDS),
-        "langs": "fr",
+        "langs": ",".join(languages or DEFAULT_SEARCH_LANGUAGES),
     }
 
     payload, _ = _get_json(url, params, SEARCH_BUDGET, settings.OFF_SEARCH_RATE_PER_MINUTE)

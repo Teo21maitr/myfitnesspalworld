@@ -116,8 +116,15 @@ class ExternalFoodSearchView(APIView):
         if len(query) < MINIMUM_QUERY_LENGTH:
             return Response({"results": []})
 
+        # Les langues du compte, jamais une valeur figée : un produit nommé en
+        # suédois reste introuvable pour qui ne cherche qu'en français.
+        languages = getattr(request.user, "settings", None)
+        languages = languages.food_search_languages if languages else None
+
         try:
-            candidates = off_client.search_products(query, limit=EXTERNAL_SEARCH_LIMIT)
+            candidates = off_client.search_products(
+                query, limit=EXTERNAL_SEARCH_LIMIT, languages=languages or None
+            )
         except off_client.OpenFoodFactsUnavailable as error:
             raise ExternalSourceUnavailable() from error
 

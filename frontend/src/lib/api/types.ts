@@ -301,10 +301,19 @@ export interface ChartSeries {
 }
 
 /** Réponse de `GET /profile/settings/`. */
+export interface SearchLanguage {
+  code: string
+  label: string
+}
+
 export interface UserSettings {
   language: string
   theme_mode: ThemeMode
   date_format: string
+  /** Langues interrogées lors d'une recherche de produits de marque (spec 11 §3). */
+  food_search_languages: string[]
+  /** Catalogue servi par le serveur : une liste tenue à deux endroits diverge. */
+  available_food_search_languages: SearchLanguage[]
 }
 
 export interface DetailResponse {
@@ -523,57 +532,3 @@ export interface Dashboard extends DiaryDay {
   weight: WeightSummary
 }
 
-/** État d'un traitement long (spec 04 §9). */
-export type TaskStatus = 'pending' | 'processing' | 'success' | 'failed'
-
-export interface AsyncTask<TResult = unknown> {
-  id: string
-  task_type: 'meal_scan'
-  status: TaskStatus
-  progress: number
-  result: TResult | null
-  /** Message destiné à l'utilisateur, jamais une trace technique. */
-  error: string | null
-  created_at: string
-}
-
-/**
- * Aliment de la base proposé pour un libellé détecté (spec 07 §5).
- *
- * Ses valeurs nutritionnelles viennent de la fiche : le modèle qui a regardé
- * la photo n'en propose aucune.
- */
-export interface MealScanCandidate {
-  id: number
-  name: string
-  brand: string
-  source: FoodSource
-  source_label: string
-  reference_amount: string
-  reference_unit: UnitType
-  nutrition: {
-    energy_kcal: string | null
-    protein_g: string | null
-    carbohydrates_g: string | null
-    fat_g: string | null
-  }
-  available_units: string[]
-}
-
-/** Un aliment détecté sur la photo, à confirmer par l'utilisateur. */
-export interface MealScanSuggestion {
-  label: string
-  estimated_quantity: string
-  unit: string
-  /** Confiance du modèle, entre 0 et 1. */
-  confidence: number
-  alternatives: string[]
-  /** Vide lorsque aucun aliment de la base ne correspond au libellé. */
-  candidates: MealScanCandidate[]
-}
-
-export interface MealScanResult {
-  suggestions: MealScanSuggestion[]
-}
-
-export type MealScanTask = AsyncTask<MealScanResult>

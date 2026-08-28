@@ -200,3 +200,36 @@ def test_une_reponse_de_recherche_malformee_est_traitee_comme_une_panne():
 
     with pytest.raises(OpenFoodFactsUnavailable):
         search_products("nutella")
+
+
+class TestSearchLanguages:
+    """Les langues interrogées décident de ce que la recherche voit.
+
+    Coder le français en dur rendait invisibles les produits nommés dans une
+    autre langue, alors même que le scan de code-barres, lui, n'a jamais eu
+    cette restriction.
+    """
+
+    @responses.activate
+    def test_les_langues_par_defaut_sont_transmises(self):
+        responses.add(responses.GET, SEARCH_URL, json={"hits": []}, status=200)
+
+        search_products("filmjölk")
+
+        assert responses.calls[0].request.params["langs"] == "fr,en"
+
+    @responses.activate
+    def test_les_langues_demandees_sont_transmises(self):
+        responses.add(responses.GET, SEARCH_URL, json={"hits": []}, status=200)
+
+        search_products("filmjölk", languages=["fr", "sv", "en"])
+
+        assert responses.calls[0].request.params["langs"] == "fr,sv,en"
+
+    @responses.activate
+    def test_une_liste_vide_retombe_sur_le_defaut(self):
+        responses.add(responses.GET, SEARCH_URL, json={"hits": []}, status=200)
+
+        search_products("filmjölk", languages=[])
+
+        assert responses.calls[0].request.params["langs"] == "fr,en"
