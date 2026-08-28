@@ -305,6 +305,7 @@ une tâche planifiée la supprime.
 ```text
 GET  /ai/status/
 POST /ai/meal-scan/
+POST /ai/label-scan/
 ```
 
 `GET /ai/status/` répond `{"enabled": bool}`. Il existe pour que l'interface
@@ -340,6 +341,25 @@ candidats vide, jamais une erreur.
 Une unité proposée que l'aliment retenu ne sait pas convertir est remplacée par
 son unité de référence : la transmettre ferait échouer la confirmation en 400
 pour un choix que l'utilisateur n'a pas fait (spec 01 §9).
+
+`label-scan` reçoit une photo d'étiquette nutritionnelle et rend un
+**brouillon d'aliment**, jamais un aliment : le formulaire de création est
+prérempli, et c'est l'utilisateur qui enregistre (spec 01 §11).
+
+Le modèle **recopie** l'étiquette ; il n'estime rien. Une valeur qu'il n'a pas
+lue revient **nulle, jamais zéro** — zéro affirme que le produit n'en contient
+pas, ce que seule une étiquette lisible permet de dire (spec 01 §8). La réponse
+nomme ces manques dans `unreadable` plutôt que de laisser un champ vide passer
+pour un oubli de saisie.
+
+`basis` dit quelle colonne a été lue : `100g`, `100ml`, ou `unknown`. Les
+étiquettes européennes portent obligatoirement une colonne pour 100, mais
+beaucoup en ajoutent une par portion : recopier la mauvaise fausserait tout
+d'un facteur trois. Quand aucune colonne pour 100 n'est trouvée, **aucune
+valeur n'est reprise** ; l'identité du produit l'est.
+
+Un code-barres illisible ou implausible est rendu vide plutôt qu'approximé : un
+code faux ferait créer un doublon sous une identité qui n'est pas la sienne.
 
 L'IA coupée par un administrateur, non configurée ou sans clé répond **503**
 `ai_disabled`. Le reste de l'application n'en est pas affecté (spec 07 §11).

@@ -32,6 +32,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Amis et partage](#amis-et-partage)
 - [Liste de courses](#liste-de-courses)
 - [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
+- [Créer un aliment depuis son étiquette](#créer-un-aliment-depuis-son-étiquette)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -161,6 +162,8 @@ Migrations existantes :
 | `common/0002_app_settings_and_async_tasks` | `AppSetting`, `AsyncTask` |
 | `ai/0001_initial` | `AITaskLog` |
 | `accounts/0004_usersettings_food_search_languages` | langues de recherche de produits |
+| `common/0003_alter_asynctask_task_type` | type de tâche « lecture d'étiquette » |
+| `ai/0002_alter_aitasklog_task_type` | le même type, côté trace d'appel |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -878,6 +881,47 @@ Ajouter `OpenAIProvider` sera donc un fichier ; ajouter la saisie vocale ou le p
 de service. `AI_PROVIDER` choisit entre `anthropic` et `fake` — cette seconde valeur étant refusée
 au démarrage en production.
 
+## Créer un aliment depuis son étiquette
+
+Photographier le tableau nutritionnel plutôt que recopier quinze champs à la main. C'est la
+réponse au vrai problème du scan de code-barres : quand Open Food Facts ne connaît pas le produit,
+la création manuelle était longue.
+
+### Recopier n'est pas estimer
+
+Le modèle **transcrit** ce qui est imprimé. Ce n'est pas la même chose qu'estimer une assiette, et
+la consigne le lui dit en toutes lettres : ne rien calculer, ne rien compléter de mémoire, ignorer
+les pourcentages d'apports de référence.
+
+### Non lu n'est pas zéro
+
+C'est la règle qui gouverne l'écran. Un reflet sur la ligne des fibres, un nutriment que le produit
+ne déclare pas : chacun ressort `null`. Un zéro enregistré affirmerait que le produit n'en contient
+pas, et ce mensonge serait recopié dans chaque snapshot de journal qui suivra (spec 01 §8).
+
+L'écran **nomme** ce qui manque — « la photo n'a pas donné : fibres et sodium » — plutôt que de
+laisser un champ vide passer pour un oubli de saisie.
+
+Vérifié contre l'API sur une étiquette suédoise sans ligne « fibres » : les sept autres valeurs
+sont lues, l'énergie prise en kcal et non en kJ, et les fibres reviennent nulles.
+
+### La colonne lue décide de tout
+
+Les étiquettes européennes portent obligatoirement une colonne « pour 100 g » ou « pour 100 ml »,
+mais beaucoup en ajoutent une « par portion ». Recopier la mauvaise fausse tout d'un facteur trois
+sans que rien ne le signale.
+
+Le modèle rend donc la base qu'il a lue. Quand ce n'est ni l'une ni l'autre, **aucune valeur n'est
+reprise** — l'identité du produit l'est, et l'écran explique pourquoi les champs sont vides.
+
+### Rien n'est enregistré sans vous
+
+Le brouillon ne fait que préremplir le formulaire de création. C'est l'utilisateur qui valide, et
+l'aliment créé lui appartient — privé par défaut, non vérifié (spec 01 §11).
+
+Un code-barres illisible est rendu vide plutôt qu'approximé : un code faux ferait créer un doublon
+sous une identité qui n'est pas la sienne.
+
 ## Tests, lint et typecheck
 
 ### Backend
@@ -904,8 +948,9 @@ npm run build             # build de production
 
 ### Bout en bout (Playwright)
 
-Dix parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
-partage, liste de courses et scan de repas — ce dernier avec une caméra simulée par Chromium. Playwright démarre lui-même le backend et un build servi en
+Onze parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
+partage, liste de courses, scan de repas et lecture d'étiquette — les deux derniers avec une
+caméra simulée par Chromium. Playwright démarre lui-même le backend et un build servi en
 statique.
 
 Le parcours de scan de repas force `AI_PROVIDER=fake` et `CELERY_TASK_ALWAYS_EAGER=True` : l'analyse
@@ -941,7 +986,7 @@ fichiers d'environnement de sa propre racine.
 | Cookies d'auth | `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAMESITE`, `AUTH_COOKIE_DOMAIN`, `AUTH_COOKIE_REFRESH_PATH` |
 | Mot de passe | `PASSWORD_RESET_TIMEOUT` (durée du lien de réinitialisation, en secondes) |
 | Open Food Facts | `OFF_ENABLED`, `OFF_PRODUCT_URL`, `OFF_SEARCH_URL`, `OFF_CONTACT_EMAIL`, `OFF_USER_AGENT`, `OFF_CONNECT_TIMEOUT`, `OFF_READ_TIMEOUT`, `OFF_PRODUCT_RATE_PER_MINUTE`, `OFF_SEARCH_RATE_PER_MINUTE`, `OFF_CACHE_TTL_DAYS` |
-| IA | `AI_ENABLED`, `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `AI_MEAL_SCAN_MODEL`, `AI_MEAL_PLANNER_MODEL`, `AI_VOICE_PARSING_MODEL`, `AI_RECIPE_MODEL` |
+| IA | `AI_ENABLED`, `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `AI_MEAL_SCAN_MODEL`, `AI_LABEL_SCAN_MODEL`, `AI_MEAL_PLANNER_MODEL`, `AI_VOICE_PARSING_MODEL`, `AI_RECIPE_MODEL` |
 | Email | `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` |
 | Stockage S3 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION` |
 | Uploads | `MAX_UPLOAD_SIZE_MB` |
