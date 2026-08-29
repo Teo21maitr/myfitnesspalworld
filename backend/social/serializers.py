@@ -25,6 +25,36 @@ class UserSummarySerializer(serializers.ModelSerializer):
         fields = ("id", "username", "first_name", "last_name")
 
 
+class FriendSerializer(UserSummarySerializer):
+    """Un ami, et ce qu'il m'a ouvert (spec 04 §12).
+
+    Sérialiseur **distinct** de `UserSummarySerializer` : celui-ci sert aussi à
+    `/users/search/` et aux demandes d'ami, où ces drapeaux n'auraient pas de
+    sens et renseigneraient sur les partages d'inconnus.
+
+    Ils permettent à l'interface de n'offrir « Son journal » que lorsque le lien
+    aboutit. Ce ne sont pas des informations sur les données d'autrui : ce sont
+    mes propres accès.
+    """
+
+    shares_diary = serializers.SerializerMethodField()
+    shares_progress = serializers.SerializerMethodField()
+
+    class Meta(UserSummarySerializer.Meta):
+        fields = (*UserSummarySerializer.Meta.fields, "shares_diary", "shares_progress")
+
+    def _opened(self, resource_type: str) -> set[int]:
+        # Calculé une fois par requête et posé dans le contexte : une requête
+        # par ami en ferait autant que la liste est longue.
+        return self.context.get("opened", {}).get(resource_type, set())
+
+    def get_shares_diary(self, obj: User) -> bool:
+        return obj.id in self._opened(ResourceType.DIARY)
+
+    def get_shares_progress(self, obj: User) -> bool:
+        return obj.id in self._opened(ResourceType.PROGRESS)
+
+
 class FriendRequestSerializer(serializers.ModelSerializer):
     from_user = UserSummarySerializer(read_only=True)
     to_user = UserSummarySerializer(read_only=True)

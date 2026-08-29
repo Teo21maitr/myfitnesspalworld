@@ -74,6 +74,52 @@ def shared_resource_ids(user: User, resource_type: str):
     )
 
 
+#: Ressources qui n'ont pas d'identifiant : elles désignent l'ensemble des
+#: données de leur propriétaire (spec 05 §8).
+UNIDENTIFIED_RESOURCES: tuple[str, ...] = (ResourceType.DIARY, ResourceType.PROGRESS)
+
+
+def opened_to(user: User) -> dict[str, set[int]]:
+    """Qui m'a ouvert son journal, et qui m'a ouvert sa progression.
+
+    Le pendant de `shared_resource_ids` pour les ressources sans identifiant :
+    là on collecte des propriétaires, pas des lignes.
+
+    Existe pour que l'interface ne propose que ce qui aboutit. La tentation
+    serait de laisser cliquer et de traduire le 404 en « cet ami n'a rien
+    ouvert » — mais le même code couvre le compte suspendu et l'incident
+    serveur, et on affirmerait une absence qu'on n'a pas vérifiée. La réponse
+    vient donc des **propres accès de l'appelant**, seule source qui autorise
+    une affirmation.
+
+    Les deux clés sont toujours présentes : une clé absente ferait planter
+    l'appelant au lieu de masquer un bouton.
+
+    Une requête, quel que soit le nombre d'amis. Elle applique exactement les
+    règles de `can_read` — les deux portées et l'état du propriétaire — parce
+    qu'un bouton affiché que `can_read` refuserait serait le défaut inverse.
+    """
+    opened: dict[str, set[int]] = {name: set() for name in UNIDENTIFIED_RESOURCES}
+
+    rows = (
+        SharePermission.objects.filter(
+            resource_type__in=UNIDENTIFIED_RESOURCES,
+            owner__status=UserStatus.ACTIVE,
+        )
+        .filter(
+            Q(target_user=user, visibility_type=VisibilityType.SPECIFIC_USER)
+            | Q(visibility_type=VisibilityType.APP_USERS)
+        )
+        .exclude(owner=user)
+        .values_list("resource_type", "owner_id")
+    )
+
+    for resource_type, owner_id in rows:
+        opened[resource_type].add(owner_id)
+
+    return opened
+
+
 #: Valeur de la colonne `visibility` signifiant « ouvert à tous les comptes
 #: actifs ». Les trois énumérations métier — aliments, recettes, listes — la
 #: partagent : c'est la chaîne qui compte ici, pas l'énumération d'origine.

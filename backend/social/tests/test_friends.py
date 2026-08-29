@@ -155,11 +155,23 @@ def test_lapi_liste_les_amis(alice, bob):
 
 
 def test_lapi_ne_revele_pas_lemail(alice, bob):
+    """Ni email, ni statut, ni horodatages (spec 01 §1).
+
+    Les deux drapeaux de partage s'y ajoutent, mais ils portent sur **mes**
+    accès, pas sur l'état civil de l'ami (spec 04 §12).
+    """
     befriend(alice, bob)
 
     row = client_for(alice).get(FRIENDS_URL).data["results"][0]
 
-    assert set(row) == {"id", "username", "first_name", "last_name"}
+    assert set(row) == {
+        "id",
+        "username",
+        "first_name",
+        "last_name",
+        "shares_diary",
+        "shares_progress",
+    }
 
 
 def test_lapi_envoie_et_accepte_une_demande(alice, bob):

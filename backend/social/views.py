@@ -31,6 +31,7 @@ from social.models import FriendRequest, FriendRequestStatus, ResourceType, Shar
 from social.serializers import (
     FriendRequestCreateSerializer,
     FriendRequestSerializer,
+    FriendSerializer,
     SharePermissionCreateSerializer,
     SharePermissionSerializer,
     UserSummarySerializer,
@@ -59,13 +60,22 @@ class UserSearchView(generics.ListAPIView):
 
 
 class FriendListView(generics.ListAPIView):
-    """`GET /friends/`."""
+    """`GET /friends/`.
 
-    serializer_class = UserSummarySerializer
+    Chaque ami porte `shares_diary` et `shares_progress` : sans eux,
+    l'interface ne pourrait offrir « Son journal » qu'à l'aveugle, et le lien
+    mènerait à un 404 chez qui n'a rien ouvert (spec 04 §12).
+    """
+
+    serializer_class = FriendSerializer
     permission_classes = ACTIVE_USER
 
     def get_queryset(self):
         return friends_service.friends_of(self.request.user)
+
+    def get_serializer_context(self):
+        # Une requête pour toute la page, plutôt qu'une par ami.
+        return {**super().get_serializer_context(), "opened": sharing.opened_to(self.request.user)}
 
 
 class FriendDetailView(APIView):
