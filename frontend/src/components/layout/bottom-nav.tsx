@@ -4,7 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 
-import { ADD_MENU_ITEMS, MOBILE_NAV_ITEMS, type NavItem } from './navigation'
+import { ADD_MENU_ITEMS, BOTTOM_NAV_ITEMS, type NavItem } from './navigation'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -12,12 +12,12 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'text-primary' : 'text-muted-foreground',
   )
 
-function NavItemLink({ to, label, Icon }: NavItem) {
+function NavItemLink({ to, label, Icon, short }: NavItem) {
   return (
     <li className="flex-1">
       <NavLink to={to} end={to === '/'} className={linkClass}>
         <Icon aria-hidden="true" className="size-5" />
-        {label}
+        {short ?? label}
       </NavLink>
     </li>
   )
@@ -26,16 +26,16 @@ function NavItemLink({ to, label, Icon }: NavItem) {
 /**
  * Barre de navigation mobile (spec 06 §2).
  *
- * Quatre destinations et un `+` central qui ouvre le menu d'ajout. Le menu est
- * une feuille au-dessus de la barre : l'ajout au journal est l'action la plus
- * fréquente, elle doit rester atteignable au pouce.
+ * Quatre raccourcis et un `+` central qui ouvre le menu d'ajout. Ce sont des
+ * raccourcis vers les écrans du quotidien, pas la navigation : celle-ci vit
+ * dans le tiroir, qui porte toutes les destinations.
  */
 export function BottomNav() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   // Le `+` s'intercale au milieu : deux liens de chaque côté.
-  const before = MOBILE_NAV_ITEMS.slice(0, 2)
-  const after = MOBILE_NAV_ITEMS.slice(2)
+  const before = BOTTOM_NAV_ITEMS.slice(0, 2)
+  const after = BOTTOM_NAV_ITEMS.slice(2)
 
   return (
     <>
@@ -72,7 +72,7 @@ export function BottomNav() {
       )}
 
       <nav
-        aria-label="Navigation principale"
+        aria-label="Raccourcis"
         className="bg-background/95 fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <ul className="flex items-stretch justify-around">

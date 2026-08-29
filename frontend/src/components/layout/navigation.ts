@@ -1,53 +1,123 @@
 import {
   Apple,
   BookOpen,
+  CalendarDays,
   ChefHat,
   Home,
   ScanBarcode,
   ScanEye,
   ScanText,
   Share2,
-  CalendarDays,
   ShoppingCart,
   Target,
   TrendingUp,
+  UserRound,
   Users,
   UtensilsCrossed,
-  UserRound,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+
+/**
+ * Les destinations de l'application, en **une seule liste**.
+ *
+ * Il y en avait deux : une pour la barre latérale, une pour mobile. Chaque
+ * étape remplissait la première et rapiéçait l'accès mobile en glissant un
+ * bouton dans « Mon compte ». « Mes repas » a fini inatteignable au doigt, et
+ * « Ajout rapide » inatteignable à la souris — deux fois le même défaut, dans
+ * les deux sens.
+ *
+ * Une liste unique, deux rendus : la barre latérale sur desktop, un tiroir sur
+ * mobile. La parité devient structurelle plutôt que surveillée, et un test
+ * échoue si une route du routeur cesse d'être atteignable (spec 06 §1).
+ *
+ * Le groupement n'est pas décoratif : dix-neuf destinations à plat ne se lisent
+ * ni en colonne ni en tiroir.
+ */
 
 export interface NavItem {
   to: string
   label: string
   Icon: LucideIcon
+  /** Libellé de la barre du bas, quand `label` y serait trop long. */
+  short?: string
 }
 
-/**
- * Navigation mobile (spec 06 §2).
- *
- * Quatre liens encadrant un bouton `+` central, inséré par la barre elle-même.
- * Aliments et Scanner quittent la barre pour ce menu : l'action centrale du
- * quotidien est d'ajouter au journal, pas de naviguer.
- *
- * « Objectifs » cède la quatrième place à « Progression », que la spec y
- * place. Cette page n'ayant plus d'entrée dans la barre, elle reste atteignable
- * depuis la carte Calories de l'accueil et depuis « Mon compte » : sans cela,
- * elle deviendrait inaccessible sur mobile.
- */
-export const MOBILE_NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Accueil', Icon: Home },
-  { to: '/journal', label: 'Journal', Icon: BookOpen },
-  { to: '/progression', label: 'Progression', Icon: TrendingUp },
-  { to: '/compte', label: 'Compte', Icon: UserRound },
+export interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Au quotidien',
+    items: [
+      { to: '/', label: 'Accueil', Icon: Home },
+      { to: '/journal', label: 'Journal', Icon: BookOpen },
+      { to: '/ajout-rapide', label: 'Ajout rapide', Icon: Zap },
+    ],
+  },
+  {
+    title: 'Aliments',
+    items: [
+      { to: '/aliments', label: 'Rechercher', Icon: Apple },
+      { to: '/mes-aliments', label: 'Mes aliments', Icon: UtensilsCrossed },
+      { to: '/scanner', label: 'Scanner un code-barres', Icon: ScanBarcode },
+      { to: '/scanner-repas', label: 'Scanner un repas', Icon: ScanEye },
+      { to: '/scanner-etiquette', label: 'Lire une étiquette', Icon: ScanText },
+    ],
+  },
+  {
+    title: 'Cuisine',
+    items: [
+      { to: '/recettes', label: 'Recettes', Icon: ChefHat },
+      { to: '/mes-repas', label: 'Mes repas', Icon: UtensilsCrossed },
+      { to: '/planification', label: 'Planification', Icon: CalendarDays },
+      { to: '/courses', label: 'Courses', Icon: ShoppingCart },
+    ],
+  },
+  {
+    title: 'Suivi',
+    items: [
+      { to: '/progression', label: 'Progression', Icon: TrendingUp },
+      { to: '/objectifs', label: 'Objectifs', Icon: Target },
+    ],
+  },
+  {
+    title: 'Partage',
+    items: [
+      { to: '/amis', label: 'Amis', Icon: Users },
+      { to: '/partages', label: 'Partages', Icon: Share2 },
+    ],
+  },
+  {
+    title: 'Compte',
+    items: [{ to: '/compte', label: 'Mon compte', Icon: UserRound, short: 'Compte' }],
+  },
 ]
+
+/** Toutes les destinations, à plat. Ce que le test de parité interroge. */
+export const NAV_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((section) => section.items)
+
+/**
+ * Raccourcis de la barre du bas (spec 06 §2).
+ *
+ * Quatre destinations encadrant le bouton `+`. Ce sont des **raccourcis** vers
+ * les écrans du quotidien, pas la navigation : celle-ci vit dans le tiroir, qui
+ * porte tout.
+ */
+export const BOTTOM_NAV_PATHS = ['/', '/journal', '/progression', '/compte'] as const
+
+export const BOTTOM_NAV_ITEMS: NavItem[] = BOTTOM_NAV_PATHS.map(
+  (path) => NAV_ITEMS.find((item) => item.to === path) as NavItem,
+)
 
 /**
  * Entrées du menu `+`, en attendant la saisie vocale.
  *
- * Les recettes y figurent : journaliser un plat qu'on a cuisiné est un geste
- * quotidien, au même titre que scanner un produit.
+ * Elles ne sont pas une navigation parallèle : chacune figure aussi dans le
+ * tiroir. C'est le geste d'ajouter au journal qu'on rapproche du pouce, pas un
+ * second chemin à tenir à jour.
  */
 export const ADD_MENU_ITEMS: NavItem[] = [
   { to: '/aliments', label: 'Ajouter un aliment', Icon: Apple },
@@ -56,29 +126,4 @@ export const ADD_MENU_ITEMS: NavItem[] = [
   { to: '/scanner-etiquette', label: 'Lire une étiquette', Icon: ScanText },
   { to: '/recettes', label: 'Depuis une recette', Icon: ChefHat },
   { to: '/ajout-rapide', label: 'Ajout rapide', Icon: Zap },
-]
-
-/**
- * Navigation desktop (spec 06 §3).
- *
- * La sidebar a la place d'afficher chaque destination : pas de menu `+` ici.
- */
-export const SIDEBAR_NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Accueil', Icon: Home },
-  { to: '/journal', label: 'Journal', Icon: BookOpen },
-  { to: '/aliments', label: 'Aliments', Icon: Apple },
-  { to: '/scanner', label: 'Scanner', Icon: ScanBarcode },
-  // Le menu `+` n'existe pas sur desktop : sans cette entrée, le scan de repas
-  // y serait inatteignable.
-  { to: '/scanner-repas', label: 'Scanner un repas', Icon: ScanEye },
-  { to: '/scanner-etiquette', label: 'Lire une étiquette', Icon: ScanText },
-  { to: '/recettes', label: 'Recettes', Icon: ChefHat },
-  { to: '/mes-repas', label: 'Mes repas', Icon: UtensilsCrossed },
-  { to: '/planification', label: 'Planification', Icon: CalendarDays },
-  { to: '/courses', label: 'Courses', Icon: ShoppingCart },
-  { to: '/progression', label: 'Progression', Icon: TrendingUp },
-  { to: '/amis', label: 'Amis', Icon: Users },
-  { to: '/partages', label: 'Partages', Icon: Share2 },
-  { to: '/objectifs', label: 'Objectifs', Icon: Target },
-  { to: '/compte', label: 'Compte', Icon: UserRound },
 ]

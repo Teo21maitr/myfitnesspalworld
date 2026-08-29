@@ -4,6 +4,7 @@ import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { ThemeSync } from '@/features/settings/use-settings'
 
 import { BottomNav } from './bottom-nav'
+import { NavDrawer } from './nav-drawer'
 import { OfflineBanner } from './offline-banner'
 import { Sidebar } from './sidebar'
 
@@ -18,6 +19,9 @@ export function AppLayout() {
 
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
         <div className="flex items-center gap-2">
+          {/* Le tiroir n'existe que sur mobile : la barre latérale porte déjà
+              toute la navigation à partir de `md`. */}
+          <NavDrawer />
           <img src="/favicon.svg" alt="" aria-hidden="true" className="size-7 rounded-md" />
           <span className="font-semibold tracking-tight">MyFitnessPalworld</span>
         </div>

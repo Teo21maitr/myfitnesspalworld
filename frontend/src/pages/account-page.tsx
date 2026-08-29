@@ -1,7 +1,3 @@
-import { CalendarDays, Share2, ShoppingCart, Target, TrendingUp, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
-
-import { Button } from '@/components/ui/button'
 import { ChangePasswordForm } from '@/features/account/change-password-form'
 import { DeleteAccountSection } from '@/features/account/delete-account-section'
 import { ProfileForm } from '@/features/account/profile-form'
@@ -24,48 +20,6 @@ export function AccountPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Connecté en tant que <span className="font-medium">{user.username}</span>.
         </p>
-      </div>
-
-      {/* « Objectifs » n'a plus d'entrée dans la barre mobile depuis que
-          « Progression » y a pris sa place : ces deux liens la gardent
-          atteignable au doigt. */}
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link to="/objectifs">
-            <Target aria-hidden="true" className="size-4" />
-            Objectifs
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/progression">
-            <TrendingUp aria-hidden="true" className="size-4" />
-            Progression
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/amis">
-            <Users aria-hidden="true" className="size-4" />
-            Amis
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/planification">
-            <CalendarDays aria-hidden="true" className="size-4" />
-            Planification
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/courses">
-            <ShoppingCart aria-hidden="true" className="size-4" />
-            Courses
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/partages">
-            <Share2 aria-hidden="true" className="size-4" />
-            Partages
-          </Link>
-        </Button>
       </div>
 
       <ProfileForm user={user} />
