@@ -89,6 +89,17 @@ test('amitié, partage et révocation', async ({ browser }) => {
     await expect(bob.getByText('Vous êtes amis.')).toBeVisible()
   })
 
+  await test.step('un ami qui n’a rien ouvert n’offre aucun lien', async () => {
+    // Le piège de l'étape : la porte fermée ne se montre pas. Ces liens
+    // s'affichaient pour tous les amis et menaient à un 404 « Contenu
+    // introuvable » que l'utilisateur lisait comme une panne.
+    await bob.goto('/amis')
+
+    await expect(bob.getByText(/ne vous a ouvert ni son journal ni sa progression/)).toBeVisible()
+    await expect(bob.getByRole('link', { name: 'Son journal' })).toHaveCount(0)
+    await expect(bob.getByRole('link', { name: 'Sa progression' })).toHaveCount(0)
+  })
+
   await test.step('alice compose une recette et la partage', async () => {
     await alice.goto('/recettes/nouvelle')
     await alice.getByLabel('Nom').fill('Compote d’alice')
@@ -134,17 +145,49 @@ test('amitié, partage et révocation', async ({ browser }) => {
     await expect(alice.getByText('Partagé.')).toBeVisible()
   })
 
-  await test.step('bob lit le journal partagé sans pouvoir le modifier', async () => {
-    await bob.goto('/partages')
-    await bob.getByRole('link', { name: 'Son journal' }).click()
+  await test.step('bob atteint le journal depuis la page Amis', async () => {
+    // Le parcours qui manquait, et où le défaut vivait : ces liens
+    // s'affichaient pour tous les amis, y compris ceux qui n'avaient rien
+    // ouvert, et menaient alors à un 404 présenté comme une panne.
+    await bob.goto('/amis')
 
-    await expect(bob.getByRole('heading', { name: 'Journal partagé' })).toBeVisible()
+    await expect(bob.getByRole('link', { name: 'Son journal' })).toBeVisible()
+    // Le journal seul a été partagé : la progression ne s'offre pas.
+    await expect(bob.getByRole('link', { name: 'Sa progression' })).toHaveCount(0)
+    await expect(bob.getByText(/ne vous a ouvert ni son journal/)).toHaveCount(0)
+
+    await bob.getByRole('link', { name: 'Son journal' }).click()
+    await expect(bob).toHaveURL(/\/amis\/\d+\/journal$/)
+  })
+
+  await test.step('bob lit le journal partagé sans pouvoir le modifier', async () => {
+    await expect(bob.getByRole('heading', { name: `Journal de ${ALICE}` })).toBeVisible()
     await expect(bob.getByText(/Abricot/).first()).toBeVisible()
 
     // Consultation seule : aucune action d'écriture n'est proposée.
     const page = bob.getByRole('main')
     await expect(page.getByRole('button', { name: /^Supprimer/ })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /^Modifier/ })).toHaveCount(0)
+  })
+
+  await test.step('une liste de courses se partage et se lit', async () => {
+    // Ce partage était refusé en 400 : le type « liste de courses » était
+    // rangé parmi ceux qui n'ont pas d'identifiant, et le message d'erreur
+    // parlait du journal.
+    await alice.goto('/courses')
+    await alice.getByLabel(/Compote d’alice/).check()
+    await alice.getByRole('button', { name: 'Générer la liste' }).click()
+    await expect(alice).toHaveURL(/\/courses\/\d+$/)
+
+    await alice.getByRole('button', { name: /^Partager / }).click()
+    await alice.getByLabel('Avec qui').selectOption({ label: BOB })
+    await alice.getByRole('button', { name: 'Confirmer le partage' }).click()
+    await expect(alice.getByText('Partagé.')).toBeVisible()
+
+    await bob.goto('/partages')
+    await expect(bob.getByText(`Liste de courses · de ${ALICE}`)).toBeVisible()
+    await bob.getByRole('link', { name: 'Ouvrir' }).last().click()
+    await expect(bob.getByText(/Abricot/).first()).toBeVisible()
   })
 
   await test.step('la progression reste fermée', async () => {
