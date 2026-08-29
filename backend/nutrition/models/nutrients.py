@@ -91,3 +91,12 @@ class NutrientValues(models.Model):
 
 #: Noms des nutriments, dans l'ordre de déclaration.
 NUTRIENT_FIELDS = tuple(field.name for field in NutrientValues._meta.fields if field.name != "id")
+
+
+def nutrient_label(name: str) -> str:
+    """Libellé français d'un nutriment, unité comprise.
+
+    Repris des champs plutôt que recopié : une table de correspondance
+    parallèle finirait par mentir sur une unité.
+    """
+    return str(NutrientValues._meta.get_field(name).verbose_name).capitalize()

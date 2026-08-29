@@ -22,6 +22,10 @@ requests==2.34.2
 # et importé paresseusement : le socle démarre sans lui.
 anthropic==1.2.0
 
+# Rapports PDF (spec 01 §22). Polices Type 1 intégrées : les accents sortent
+# sans embarquer de fichier de police, et rien à installer sur l'hôte.
+reportlab==5.0.1
+
 # Tâches asynchrones
 celery[redis]==5.6.3
 # redis-py est contraint par kombu (celery) : redis<6.5
