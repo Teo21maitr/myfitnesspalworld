@@ -74,6 +74,10 @@ test('tableau de bord, copie de journée et déplacement', async ({ page }) => {
       .first()
       .click()
     await page.getByLabel('Quantité').fill('200')
+    // Repas choisi explicitement : le formulaire propose par défaut celui de
+    // l'heure courante, et le parcours dépendait donc de l'heure à laquelle il
+    // s'exécutait — vert le matin, rouge après 18 h.
+    await page.getByLabel('Repas').selectOption({ label: 'Petit-déjeuner' })
     await page.getByRole('button', { name: 'Ajouter au journal' }).click()
     await expect(page).toHaveURL(/\/journal/)
 
