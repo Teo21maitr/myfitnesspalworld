@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { today } from '@/features/diary/dates'
 import { useMealTypes } from '@/features/diary/use-diary'
 import { SavedMealForm } from '@/features/saved-meals/saved-meal-form'
+import { ShareDialog } from '@/features/shares/share-dialog'
 import {
   useAddSavedMealToDiary,
   useCreateSavedMeal,
@@ -135,6 +136,12 @@ function SavedMealCard({ meal }: { meal: SavedMeal }) {
             <Copy aria-hidden="true" className="size-4" />
             Dupliquer
           </Button>
+
+          {/* Un repas enregistré se partage (spec 01 §18). Il n'a pas de fiche
+              propre : la carte est le seul endroit possible. */}
+          {meal.is_editable && (
+            <ShareDialog resourceType="saved_meal" resourceId={meal.id} label={meal.name} />
+          )}
 
           {meal.is_editable && (
             <Button

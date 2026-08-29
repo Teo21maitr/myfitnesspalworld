@@ -12,8 +12,8 @@ export const sharesQueryKey = ['shares'] as const
 export const receivedSharesQueryKey = ['shares', 'received'] as const
 export const sharedDiaryQueryKey = (userId: number, date: string) =>
   ['shares', 'diary', userId, date] as const
-export const sharedChartQueryKey = (userId: number, metric: string) =>
-  ['shares', 'chart', userId, metric] as const
+export const sharedChartQueryKey = (userId: number, metric: string, from: string, to: string) =>
+  ['shares', 'chart', userId, metric, from, to] as const
 
 export interface SharePayload {
   resource_type: ShareResourceType

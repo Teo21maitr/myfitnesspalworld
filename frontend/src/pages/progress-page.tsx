@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { shift, today } from '@/features/diary/dates'
 import { MeasurementHistory, WeightHistory } from '@/features/progress/history-list'
 import { MeasurementForm } from '@/features/progress/measurement-form'
+import { METRIC_OPTIONS, metricLabel } from '@/features/progress/metrics'
 import { useChart, useMeasurements, useWeightEntries } from '@/features/progress/use-progress'
 import { ProgressChart } from '@/features/progress/weight-chart'
 import { WeightForm } from '@/features/progress/weight-form'
@@ -14,16 +15,6 @@ import { describeError } from '@/lib/query-client'
 
 /** Fenêtre affichée par défaut, identique à celle du backend (spec 04 §14). */
 const CHART_PERIOD_DAYS = 90
-
-const METRIC_OPTIONS = [
-  { value: 'weight', label: 'Poids' },
-  { value: 'waist', label: 'Tour de taille' },
-  { value: 'hips', label: 'Tour de hanches' },
-  { value: 'chest', label: 'Tour de poitrine' },
-  { value: 'arm', label: 'Tour de bras' },
-  { value: 'thigh', label: 'Tour de cuisse' },
-  { value: 'body_fat', label: 'Masse grasse' },
-] as const
 
 function ErrorLine({ error }: { error: unknown }) {
   return (
@@ -69,9 +60,6 @@ export function ProgressPage() {
     [weightEntries],
   )
 
-  const metricLabel =
-    METRIC_OPTIONS.find((option) => option.value === metric)?.label ?? 'Progression'
-
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div>
@@ -113,7 +101,7 @@ export function ProgressPage() {
             </div>
           )}
           {chart.error && <ErrorLine error={chart.error} />}
-          {chart.data && <ProgressChart series={chart.data} label={metricLabel} />}
+          {chart.data && <ProgressChart series={chart.data} label={metricLabel(metric)} />}
         </CardContent>
       </Card>
 

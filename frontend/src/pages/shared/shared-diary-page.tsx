@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,8 @@ import { NutrientValue } from '@/features/foods/nutrient-value'
 import { useSharedDiary } from '@/features/shares/use-shares'
 import { describeError } from '@/lib/query-client'
 
+import { useSharedOwner } from './use-shared-owner'
+
 /**
  * Journal d'un ami, en lecture seule (spec 05 §8).
  *
@@ -16,8 +18,7 @@ import { describeError } from '@/lib/query-client'
  * refuserait, mais offrir une action vouée au refus est déjà un défaut.
  */
 export function SharedDiaryPage() {
-  const params = useParams()
-  const userId = Number(params.userId)
+  const { userId, name, invalid } = useSharedOwner()
   const [date, setDate] = useState(today())
 
   const { data: day, error, isPending } = useSharedDiary(userId, date)
@@ -32,9 +33,20 @@ export function SharedDiaryPage() {
             Amis
           </Link>
         </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">Journal partagé</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {name ? `Journal de ${name}` : 'Journal partagé'}
+        </h1>
         <p className="text-muted-foreground mt-1 text-sm">Consultation seule.</p>
       </div>
+
+      {/* Une adresse malformée laissait la requête désactivée, donc un
+          squelette qui ne se résolvait jamais. */}
+      {invalid && (
+        <p role="alert" className="text-destructive flex items-start gap-2 text-sm">
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          Cette adresse ne désigne aucun compte.
+        </p>
+      )}
 
       <div className="flex items-center justify-between gap-2">
         <Button

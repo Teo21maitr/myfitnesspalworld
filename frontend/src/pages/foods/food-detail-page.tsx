@@ -2,6 +2,7 @@ import { ArrowLeft, Star, TriangleAlert } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { ShareDialog } from '@/features/shares/share-dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddToDiaryForm } from '@/features/diary/add-to-diary-form'
 import { NutritionTable } from '@/features/foods/nutrition-table'
@@ -118,10 +119,18 @@ export function FoodDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Un aliment personnel se partage (spec 01 §18). Seul son propriétaire
+          voit ces actions : le backend refuserait les autres, et proposer une
+          action vouée au refus est déjà un défaut. */}
       {food.is_editable && (
-        <Button asChild variant="outline" className="self-start">
-          <Link to={`/mes-aliments/${food.id}`}>Modifier cet aliment</Link>
-        </Button>
+        <div className="flex flex-wrap items-start gap-2">
+          <Button asChild variant="outline">
+            <Link to={`/mes-aliments/${food.id}`}>Modifier cet aliment</Link>
+          </Button>
+          {food.source === 'user' && (
+            <ShareDialog resourceType="food" resourceId={food.id} label={food.name} />
+          )}
+        </div>
       )}
     </div>
   )

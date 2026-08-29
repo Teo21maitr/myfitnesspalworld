@@ -35,7 +35,7 @@ export function useSharedDiary(userId: number, date: string) {
 
 export function useSharedChart(userId: number, metric: string, from: string, to: string) {
   return useQuery({
-    queryKey: sharedChartQueryKey(userId, metric),
+    queryKey: sharedChartQueryKey(userId, metric, from, to),
     queryFn: () => fetchSharedChart(userId, metric, from, to),
     enabled: Number.isFinite(userId),
   })

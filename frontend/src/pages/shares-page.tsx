@@ -13,6 +13,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   food: 'Aliment',
   recipe: 'Recette',
   saved_meal: 'Repas enregistré',
+  shopping_list: 'Liste de courses',
   diary: 'Journal',
   progress: 'Progression',
 }
@@ -27,6 +28,12 @@ function receivedLink(share: SharePermission): { to: string; label: string } | n
   }
   if (share.resource_type === 'diary') {
     return { to: `/amis/${share.owner.id}/journal`, label: 'Son journal' }
+  }
+  if (share.resource_type === 'saved_meal') {
+    return { to: '/mes-repas', label: 'Ouvrir' }
+  }
+  if (share.resource_type === 'shopping_list' && share.resource_id !== null) {
+    return { to: `/courses/${share.resource_id}`, label: 'Ouvrir' }
   }
   if (share.resource_type === 'progress') {
     return { to: `/amis/${share.owner.id}/progression`, label: 'Sa progression' }
@@ -115,8 +122,8 @@ export function SharesPage() {
           </CardTitle>
           {grantedRows.length === 0 && !granted.isPending && (
             <CardDescription>
-              Rien pour l’instant. Le bouton « Partager » se trouve sur chaque recette et chaque
-              aliment personnel.
+              Rien pour l’instant. Le bouton « Partager » se trouve sur chaque recette, chaque
+              aliment personnel, chaque repas enregistré et chaque liste de courses.
             </CardDescription>
           )}
         </CardHeader>
@@ -148,6 +155,12 @@ export function SharesPage() {
           )}
         </CardHeader>
         <CardContent>
+          {received.isPending && (
+            <div aria-busy="true">
+              <div className="bg-muted h-16 animate-pulse rounded-xl" />
+              <span className="sr-only">Chargement des partages reçus…</span>
+            </div>
+          )}
           {received.error && <ErrorLine error={received.error} />}
           {receivedRows.length > 0 && (
             <ul className="flex flex-col">
