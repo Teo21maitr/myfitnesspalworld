@@ -154,18 +154,11 @@ class ShareListCreateView(generics.ListCreateAPIView):
     permission_classes = ACTIVE_USER
 
     def get_queryset(self):
-        return SharePermission.objects.filter(owner=self.request.user)
-
-    def perform_destroy(self, instance: SharePermission) -> None:
-        resource_type, resource_id = instance.resource_type, instance.resource_id
-        instance.delete()
-
-        # Sans ce recalcul, la colonne continuerait d'annoncer « ouvert à
-        # tous » alors que le partage vient d'être retiré.
-        if sharing.requires_resource_id(resource_type):
-            sharing.sync_visibility(self.request.user, resource_type, resource_id).select_related(
-                "owner", "target_user"
-            )
+        # Le sérialiseur rend les deux comptes : sans jointure, une requête par
+        # ligne s'ajouterait à celle de la page.
+        return SharePermission.objects.filter(owner=self.request.user).select_related(
+            "owner", "target_user"
+        )
 
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.get_queryset())
@@ -246,9 +239,19 @@ def shared_owner(request: Request, resource_type: str) -> User:
 
     Un 404 plutôt qu'un 403 : révéler qu'une ressource existe mais reste fermée
     renseignerait déjà sur les données d'autrui.
+
+    L'identifiant est converti avant d'atteindre la base : passer une chaîne
+    non numérique à `filter(pk=…)` faisait lever une `ValueError` que rien ne
+    rattrapait, soit un 500 là où le contrat promet un 404.
     """
     raw = request.query_params.get("user_id")
-    owner = User.objects.filter(pk=raw).first() if raw else None
+
+    try:
+        owner_id = int(raw) if raw else None
+    except ValueError:
+        owner_id = None
+
+    owner = User.objects.filter(pk=owner_id).first() if owner_id is not None else None
 
     if owner is None or not sharing.can_read(request.user, owner, resource_type):
         raise NotFound("Contenu introuvable.")

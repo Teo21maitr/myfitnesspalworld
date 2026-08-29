@@ -193,3 +193,33 @@ def test_le_partage_de_la_progression_nouvre_pas_le_journal(alice, bob, alice_jo
 
 def test_la_consultation_partagee_exige_une_authentification(api_client, alice):
     assert api_client.get(SHARED_DIARY_URL, {"user_id": alice.id}).status_code == 401
+
+
+def test_un_identifiant_non_numerique_repond_404(alice, bob):
+    """404, pas 500 : le contrat ne dépend pas de la forme du paramètre."""
+    response = client_for(bob).get(SHARED_DIARY_URL, {"user_id": "abc"})
+
+    assert response.status_code == 404
+
+
+def test_une_metrique_inconnue_repond_404(alice, bob):
+    befriend(alice, bob)
+    share(alice, bob, ResourceType.PROGRESS)
+
+    response = client_for(bob).get(SHARED_CHARTS_URL, {"user_id": alice.id, "metric": "zorglub"})
+
+    assert response.status_code == 404
+
+
+def test_un_journal_ouvert_a_tous_se_lit_sans_amitie(alice, bob):
+    """`app_users` ne vise personne, donc tout le monde (spec 04 §13)."""
+    SharePermission.objects.create(
+        owner=alice,
+        target_user=None,
+        resource_type=ResourceType.DIARY,
+        visibility_type=VisibilityType.APP_USERS,
+    )
+
+    response = client_for(bob).get(SHARED_DIARY_URL, {"user_id": alice.id})
+
+    assert response.status_code == 200

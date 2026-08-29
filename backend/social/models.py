@@ -33,7 +33,18 @@ class ResourceType(models.TextChoices):
 
 #: Ressources désignées par un identifiant. Le journal et la progression n'en
 #: ont pas : ils désignent l'ensemble des données de leur propriétaire.
-IDENTIFIED_RESOURCES = frozenset({ResourceType.FOOD, ResourceType.RECIPE, ResourceType.SAVED_MEAL})
+#:
+#: Une liste de courses **en a un**. L'avoir oubliée ici rendait son partage
+#: impossible : la validation exigeait l'absence d'identifiant, et la ligne
+#: créée sans lui n'ouvrait rien.
+IDENTIFIED_RESOURCES = frozenset(
+    {
+        ResourceType.FOOD,
+        ResourceType.RECIPE,
+        ResourceType.SAVED_MEAL,
+        ResourceType.SHOPPING_LIST,
+    }
+)
 
 
 class VisibilityType(models.TextChoices):
@@ -171,9 +182,16 @@ class SharePermission(models.Model):
         verbose_name_plural = "partages"
         ordering = ["-created_at"]
         constraints = [
+            # `nulls_distinct=False` : sans lui, deux colonnes de la clé étant
+            # nulles pour le journal (`resource_id`) et pour un partage global
+            # (`target_user`), l'index ne s'appliquait justement jamais aux
+            # lignes qu'il devait protéger. `get_or_create` rend l'API
+            # idempotente, mais deux requêtes concurrentes créaient des
+            # doublons sans que rien ne les arrête.
             models.UniqueConstraint(
                 fields=["owner", "target_user", "resource_type", "resource_id"],
                 name="share_unique_target",
+                nulls_distinct=False,
             ),
             # Un partage ciblé nomme quelqu'un ; un partage global ne nomme
             # personne. L'inverse, dans un cas comme dans l'autre, n'a pas de

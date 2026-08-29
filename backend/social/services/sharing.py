@@ -212,6 +212,7 @@ def sync_visibility(user: User, resource_type: str, resource_id: int) -> None:
     l'est.
     """
     from nutrition.models import FoodVisibility
+    from planning.models import ShoppingVisibility
     from recipes.models import RecipeVisibility
 
     resource = resolve_owned_resource(user, resource_type, resource_id)
@@ -221,7 +222,13 @@ def sync_visibility(user: User, resource_type: str, resource_id: int) -> None:
     remaining = SharePermission.objects.filter(
         owner=user, resource_type=resource_type, resource_id=resource_id
     )
-    choices = FoodVisibility if resource_type == ResourceType.FOOD else RecipeVisibility
+    # Chaque app a son énumération. Leurs valeurs coïncident aujourd'hui, mais
+    # s'en remettre à cette coïncidence est ce qui rend le défaut invisible le
+    # jour où elle cesse.
+    choices = {
+        ResourceType.FOOD: FoodVisibility,
+        ResourceType.SHOPPING_LIST: ShoppingVisibility,
+    }.get(resource_type, RecipeVisibility)
 
     if remaining.filter(visibility_type=VisibilityType.APP_USERS).exists():
         wanted = choices.APP_USERS

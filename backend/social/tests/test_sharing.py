@@ -573,3 +573,142 @@ def test_on_ne_revoque_pas_le_partage_dun_autre(alice, bob, carol, recipe):
 
     assert response.status_code == 404
     assert SharePermission.objects.filter(pk=permission.pk).exists()
+
+
+# --- Le partage par l'API, pour chaque type ---------------------------------
+#
+# Les tests ci-dessus créent les permissions par l'ORM. C'est ce qui a laissé
+# passer le partage de liste de courses : le seul chemin que l'interface
+# emprunte — `POST /shares/` — n'était jamais exercé pour ce type.
+
+
+@pytest.fixture
+def shopping_list(alice):
+    from planning.models import ShoppingList, ShoppingVisibility
+
+    return ShoppingList.objects.create(
+        owner=alice, name="Courses de la semaine", visibility=ShoppingVisibility.PRIVATE
+    )
+
+
+def test_une_liste_de_courses_se_partage_avec_son_identifiant(alice, bob, shopping_list):
+    befriend(alice, bob)
+
+    response = client_for(alice).post(
+        SHARES_URL,
+        {
+            "resource_type": "shopping_list",
+            "resource_id": shopping_list.id,
+            "visibility": "specific_user",
+            "target_user_id": bob.id,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201, response.data
+    assert response.data["resource_id"] == shopping_list.id
+    assert response.data["resource_name"] == "Courses de la semaine"
+
+
+def test_une_liste_partagee_devient_lisible(alice, bob, shopping_list):
+    """Le partage ne vaut que s'il ouvre quelque chose."""
+    from planning.models import ShoppingList
+
+    befriend(alice, bob)
+    client_for(alice).post(
+        SHARES_URL,
+        {
+            "resource_type": "shopping_list",
+            "resource_id": shopping_list.id,
+            "visibility": "specific_user",
+            "target_user_id": bob.id,
+        },
+        format="json",
+    )
+
+    assert ShoppingList.objects.visible_to(bob).filter(pk=shopping_list.id).exists()
+
+
+def test_une_liste_sans_identifiant_est_refusee(alice, bob):
+    befriend(alice, bob)
+
+    response = client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "shopping_list", "visibility": "specific_user", "target_user_id": bob.id},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "resource_id" in response.data["errors"]
+
+
+def test_la_liste_d_un_autre_ne_se_partage_pas(alice, bob, carol):
+    """L'ownership est vérifié côté serveur, jamais déduit du corps."""
+    from planning.models import ShoppingList
+
+    befriend(alice, bob)
+    autre = ShoppingList.objects.create(owner=carol, name="Chez Carol")
+
+    response = client_for(alice).post(
+        SHARES_URL,
+        {
+            "resource_type": "shopping_list",
+            "resource_id": autre.id,
+            "visibility": "specific_user",
+            "target_user_id": bob.id,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+
+def test_la_progression_se_partage_par_l_api(alice, bob):
+    """Seul le journal était couvert ; le bouton « Ma progression » ne l'était pas."""
+    befriend(alice, bob)
+
+    response = client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "progress", "visibility": "specific_user", "target_user_id": bob.id},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["resource_id"] is None
+    assert can_read(bob, alice, ResourceType.PROGRESS)
+    assert not can_read(bob, alice, ResourceType.DIARY)
+
+
+def test_le_journal_s_ouvre_a_tous_les_comptes_actifs(alice, bob):
+    """Sans amitié : un partage global ne vise personne (spec 04 §13)."""
+    response = client_for(alice).post(
+        SHARES_URL,
+        {"resource_type": "diary", "visibility": "app_users"},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["target_user"] is None
+    assert can_read(bob, alice, ResourceType.DIARY)
+
+
+def test_deux_partages_identiques_du_journal_ne_font_qu_une_ligne(alice, bob):
+    """La contrainte d'unicité porte enfin sur les colonnes nulles."""
+    import pytest as _pytest
+    from django.db import IntegrityError, transaction
+
+    befriend(alice, bob)
+    share(alice, bob, ResourceType.DIARY)
+
+    with _pytest.raises(IntegrityError), transaction.atomic():
+        share(alice, bob, ResourceType.DIARY)
+
+
+def test_deux_partages_globaux_identiques_sont_refuses(alice):
+    import pytest as _pytest
+    from django.db import IntegrityError, transaction
+
+    share(alice, None, ResourceType.PROGRESS)
+
+    with _pytest.raises(IntegrityError), transaction.atomic():
+        share(alice, None, ResourceType.PROGRESS)
