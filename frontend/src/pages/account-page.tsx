@@ -1,4 +1,4 @@
-import { Share2, ShoppingCart, Target, TrendingUp, Users } from 'lucide-react'
+import { CalendarDays, Share2, ShoppingCart, Target, TrendingUp, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,12 @@ export function AccountPage() {
           <Link to="/amis">
             <Users aria-hidden="true" className="size-4" />
             Amis
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/planification">
+            <CalendarDays aria-hidden="true" className="size-4" />
+            Planification
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm">

@@ -542,7 +542,7 @@ export type TaskStatus = 'pending' | 'processing' | 'success' | 'failed'
 
 export interface AsyncTask<TResult = unknown> {
   id: string
-  task_type: 'meal_scan' | 'label_scan'
+  task_type: 'meal_scan' | 'label_scan' | 'meal_planner'
   status: TaskStatus
   progress: number
   result: TResult | null
@@ -631,3 +631,110 @@ export interface LabelScanResult {
 }
 
 export type LabelScanTask = AsyncTask<LabelScanResult>
+
+/** Nature d'un élément planifié (spec 03 §7). */
+export type PlanEntryType = 'food' | 'recipe' | 'saved_meal'
+
+/** Les quatre valeurs affichées d'un élément ou d'une journée. */
+export type MacroValues = Record<
+  'energy_kcal' | 'protein_g' | 'carbohydrates_g' | 'fat_g',
+  string | null
+>
+
+export interface PlanEntry {
+  id: number
+  meal_type: number
+  entry_type: PlanEntryType
+  food: number | null
+  recipe: number | null
+  quantity: string
+  unit_label: string
+  sort_order: number
+  generated_by_ai: boolean
+  label: string
+  values: MacroValues
+}
+
+export interface PlanDay {
+  id: number
+  date: string
+  entries: PlanEntry[]
+  totals: MacroValues
+  incomplete_nutrients: string[]
+  targets: Record<string, string> | null
+  /** Écart en pourcentage, mesuré sur les fiches de la base. */
+  deviations: Record<string, number>
+  /** Calculé côté serveur : recopier les seuils ici les ferait diverger. */
+  within_tolerance: boolean
+}
+
+export interface MealPlanListItem {
+  id: number
+  name: string
+  start_date: string
+  end_date: string
+  generated_by_ai: boolean
+  days_count: number
+  created_at: string
+}
+
+export interface MealPlan extends MealPlanListItem {
+  notes: string
+  days: PlanDay[]
+  /** Recettes proposées qu'aucun ingrédient ne rendait enregistrables. */
+  skipped_recipes?: string[]
+}
+
+/**
+ * Recette inédite proposée par le modèle.
+ *
+ * Elle n'existe pas encore : c'est l'enregistrement du plan qui la crée
+ * (spec 07 §8).
+ */
+export interface ProposedRecipe {
+  name: string
+  servings: string
+  instructions: string
+  ingredients: { food_id: number; label: string; quantity: string; unit_label: string }[]
+}
+
+export interface ProposalItem {
+  entry_type: PlanEntryType
+  label: string
+  quantity: string
+  unit_label: string
+  values: MacroValues
+  food?: MealScanCandidate
+  recipe_id?: number
+  new_recipe?: ProposedRecipe
+}
+
+export interface ProposalMeal {
+  meal: string
+  meal_type_id: number | null
+  items: ProposalItem[]
+}
+
+export interface ProposalDay {
+  date: string
+  targets: Record<string, string>
+  totals: MacroValues
+  deviations: Record<string, number>
+  /** Faux quand la journée sort des tolérances après trois essais. */
+  within_tolerance: boolean
+  attempts: number
+  /** Libellés que la base n'a pas retrouvés, nommés plutôt qu'inventés. */
+  unmatched: string[]
+  meals: ProposalMeal[]
+}
+
+/** Proposition de plan : rien n'est encore enregistré. */
+export interface PlanProposal {
+  name: string
+  start_date: string
+  end_date: string
+  days: ProposalDay[]
+  warnings: string[]
+}
+
+export type MealPlanTask = AsyncTask<PlanProposal>

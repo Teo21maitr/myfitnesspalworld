@@ -10,6 +10,8 @@ export interface GeneratePayload {
   name?: string
   recipe_ids?: number[]
   dates?: string[]
+  /** Un planning verse les ingrédients de tout ce qu'il prévoit. */
+  meal_plan_id?: number
 }
 
 export interface ItemPayload {
