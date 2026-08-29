@@ -261,7 +261,47 @@ POST   /meal-plans/{id}/regenerate-entry/
 POST   /meal-plans/{id}/add-to-diary/
 ```
 
-La génération async retourne un `task_id`.
+`generate` reçoit la période, les repas à remplir et les contraintes de la
+spec 01 §15 — allergies, aliments aimés, détestés. Il répond **202** avec une
+tâche : la composition dure plusieurs dizaines de secondes.
+
+Le résultat est une **proposition**, et rien n'est persisté. C'est
+`POST /meal-plans/` qui enregistre ce que l'utilisateur a relu — et qui crée,
+à ce moment-là seulement, les recettes que le modèle a inventées (spec 07 §8).
+
+La composition se fait **une journée à la fois**. Chaque jour a sa propre cible,
+surcharge de jour de semaine comprise (spec 01 §4), et une semaine entière
+demandée en un appel revient tronquée. Le découpage rend aussi chaque correction
+locale : un jour hors tolérance se rejoue seul.
+
+Le modèle ne propose que des **libellés et des quantités** ; le schéma ne prévoit
+aucun champ nutritionnel. Chacun est résolu dans le référentiel, les totaux sont
+recalculés à partir des fiches, et **c'est sur eux que la tolérance est
+mesurée** — ±5 % sur les calories, ±10 % sur les macros.
+
+Les quantités sont ensuite **ajustées par le backend** pour approcher les
+objectifs : un modèle choisit bien quoi manger et mal combien, et doser quinze
+aliments contre quatre cibles est une arithmétique, pas une intuition. Les
+facteurs restent bornés, et les quantités arrondies à un pas servable.
+
+Ce qui reste hors tolérance après ajustement tient à la **composition**, pas aux
+quantités : la journée est alors redemandée avec l'écart mesuré, **trois essais
+au maximum** ; au-delà, le meilleur résultat sort assorti d'un avertissement
+(spec 07 §7).
+
+Une période est bornée à **sept jours** : c'est ce que la spec 01 §15 demande, et
+ce que le temps permet.
+
+`add-to-diary` **n'écrase jamais** (spec 01 §15). Un repas de la journée cible
+qui contient déjà des entrées est nommé dans `conflicts` et rien n'est écrit ;
+avec `confirm`, les entrées s'ajoutent par-dessus sans rien remplacer. Le
+dépliage suit la règle des repas enregistrés : un aliment devient une entrée
+d'aliment, une recette une entrée de recette, chacune snapshotée pour elle-même.
+
+`regenerate-entry` recompose un seul repas et écrit directement dans le plan :
+l'utilisateur l'a demandé sur son propre plan, et un plan n'est pas le journal.
+Il ne puise que dans l'existant, une recette inventée ne s'enregistrant qu'à
+l'acceptation d'un plan.
 
 ## 9. Async tasks
 
@@ -388,8 +428,9 @@ DELETE /shopping-lists/{id}/items/{item_id}/
 Sans `shopping_list_id`, une liste est créée ; avec lui, elle est complétée et
 les articles compatibles fusionnent avec ceux déjà présents.
 
-`meal_plan_id` n'est pas encore accepté : le planner n'existe pas, et un
-paramètre qui ne ferait rien vaudrait moins qu'une erreur claire.
+`meal_plan_id` verse tout ce que le planning prévoit : une entrée de recette y
+apporte ses **ingrédients** mis à l'échelle des portions planifiées, comme une
+journée de journal.
 
 **Regrouper n'est pas additionner.** Les quantités portent des unités : 150 g et
 1 kg du même aliment donnent 1150 g, pas 151. Chaque quantité est convertie dans

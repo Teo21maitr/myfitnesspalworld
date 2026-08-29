@@ -33,6 +33,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Liste de courses](#liste-de-courses)
 - [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
 - [Créer un aliment depuis son étiquette](#créer-un-aliment-depuis-son-étiquette)
+- [Planification des repas](#planification-des-repas)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -164,6 +165,8 @@ Migrations existantes :
 | `accounts/0004_usersettings_food_search_languages` | langues de recherche de produits |
 | `common/0003_alter_asynctask_task_type` | type de tâche « lecture d'étiquette » |
 | `ai/0002_alter_aitasklog_task_type` | le même type, côté trace d'appel |
+| `planning/0002_mealplan_mealplanday_mealplanentry_and_more` | `MealPlan`, `MealPlanDay`, `MealPlanEntry` |
+| `common/0004`, `ai/0003` | type de tâche « génération de plan » |
 
 > Une migration déjà appliquée n'est **jamais** modifiée : il faut en créer une nouvelle.
 
@@ -922,6 +925,90 @@ l'aliment créé lui appartient — privé par défaut, non vérifié (spec 01 �
 Un code-barres illisible est rendu vide plutôt qu'approximé : un code faux ferait créer un doublon
 sous une identité qui n'est pas la sienne.
 
+## Planification des repas
+
+Composer des journées sous contraintes, les relire, les journaliser, en tirer les courses.
+
+### La tolérance se mesure sur les fiches, jamais sur les dires du modèle
+
+Le modèle ne pèse rien. Il propose « riz, 200 g » ; ce que 200 g de ce riz-là valent est dans la
+base, et peut s'écarter de son estimation d'un tiers. Un plan validé sur ses propres chiffres
+paraît juste, s'affiche juste, et rate l'objectif dès qu'on le journalise.
+
+Le schéma qui lui est envoyé ne comporte donc **aucun champ nutritionnel** — ne pas lui demander de
+chiffres est la façon la plus sûre de ne pas s'y fier. Chaque libellé est résolu par la recherche
+ordinaire, les totaux sont recalculés à partir des fiches, et la tolérance porte sur eux : ±5 % sur
+les calories, ±10 % sur les macros (spec 01 §15).
+
+Hors tolérance, la journée est redemandée avec l'écart mesuré — **trois essais au maximum**, puis le
+meilleur résultat assorti d'un avertissement. Sans ce plafond, une journée impossible à satisfaire
+appellerait le fournisseur indéfiniment.
+
+### Le modèle compose, le backend dose
+
+C'est ce qui fait tenir les objectifs, et ça n'allait pas de soi.
+
+Un modèle de langage choisit bien **quoi** manger et mal **combien**. Viser à la fois des calories
+et trois macronutriments en dosant quinze aliments est une optimisation sous contraintes ; la lui
+demander de tête produisait des journées à 20 ou 30 % de la cible, et lui redemander de corriger ne
+faisait que déplacer l'erreur — les lipides restaient bloqués à +28 %.
+
+`nutrition/services/fitting.py` fait cette arithmétique-là, exactement et sans modèle : à
+composition donnée, une descente par coordonnées cherche les quantités qui approchent au mieux les
+quatre cibles, chaque objectif pesant l'inverse du carré de sa tolérance. Les facteurs sont bornés
+entre 0,4 et 2,5 — la composition proposée doit rester reconnaissable — et les quantités arrondies
+à un pas servable : personne ne pèse 237 g de flocons d'avoine.
+
+Mesuré sur les mêmes contraintes, avant et après :
+
+| | Avant | Après |
+| --- | --- | --- |
+| Journées dans les tolérances | 0 sur 3 | **3 sur 3** |
+| Écart maximal | 34 % | 9 % |
+| Durée | 176 s | 48 s |
+| Appels au modèle | 9 | 4 |
+
+Ce qui reste hors tolérance après dosage ne se corrige plus par les quantités : c'est la
+**composition** qui est en cause. C'est cela qu'on redemande alors au modèle — et c'est une
+question à laquelle il sait répondre.
+
+### Une journée à la fois, et pourquoi
+
+Mesuré contre l'API : une semaine demandée en un seul appel dépasse 16 000 jetons de réponse et
+revient **tronquée** après plus de deux minutes ; une journée en tient 1 800 en une quinzaine de
+secondes.
+
+Le découpage n'est pas qu'une affaire de budget. Il colle aux cibles, qui sont journalières —
+`resolve_for_date()` rend déjà la valeur applicable à une date, surcharge de jour de semaine
+comprise — et il rend chaque correction locale : un jour hors tolérance se rejoue seul.
+
+Une période est bornée à sept jours. C'est ce que la spec demande, et ce que le temps permet : une
+journée coûte jusqu'à une minute quand elle demande ses trois essais.
+
+### Corriger à l'aveugle ne corrige rien
+
+Quand une nouvelle demande est nécessaire, elle donne au modèle **ce que ses quantités valaient
+réellement**, macros comprises : « Flocon d'avoine 100 g : 380 kcal, P 13 / G 60 / L 7 ». Sans
+cela, il ignore ce que pèse cet aliment-là dans ce référentiel-ci, et corrige au jugé.
+
+Ces valeurs viennent de la base, et c'est toujours la base qui tranche : le modèle n'en devient pas
+pour autant source de vérité.
+
+### Une proposition n'est pas un plan
+
+La génération **ne persiste rien**. Le résultat est une proposition ; `POST /meal-plans/`
+enregistre ce que l'utilisateur a relu — et crée à ce moment-là, dans la même transaction, les
+recettes que le modèle a inventées (spec 07 §8). Une recette dont aucun ingrédient ne se retrouve
+en base est écartée et nommée, plutôt qu'enregistrée incomplète.
+
+### L'ajout au journal n'écrase rien
+
+Un repas de la journée cible qui contient déjà des entrées est **nommé**, et rien n'est écrit tant
+que l'utilisateur n'a pas confirmé. Confirmé, le plan s'ajoute par-dessus : il ne remplace pas.
+
+Les entrées créées sont indépendantes et snapshotées ; modifier ou supprimer le plan ensuite ne
+touche pas ce qui a été journalisé.
+
 ## Tests, lint et typecheck
 
 ### Backend
@@ -948,9 +1035,9 @@ npm run build             # build de production
 
 ### Bout en bout (Playwright)
 
-Onze parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
-partage, liste de courses, scan de repas et lecture d'étiquette — les deux derniers avec une
-caméra simulée par Chromium. Playwright démarre lui-même le backend et un build servi en
+Douze parcours : compte, aliments, code-barres, journal, tableau de bord, recettes, progression,
+partage, planification, liste de courses, scan de repas et lecture d'étiquette — les deux derniers avec
+une caméra simulée par Chromium. Playwright démarre lui-même le backend et un build servi en
 statique.
 
 Le parcours de scan de repas force `AI_PROVIDER=fake` et `CELERY_TASK_ALWAYS_EAGER=True` : l'analyse
