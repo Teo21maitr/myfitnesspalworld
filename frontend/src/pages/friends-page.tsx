@@ -16,7 +16,7 @@ import {
   useSendFriendRequest,
   useUserSearch,
 } from '@/features/friends/use-friends'
-import type { FriendRequest, UserSummary } from '@/lib/api/types'
+import type { Friend, FriendRequest, UserSummary } from '@/lib/api/types'
 import { describeError } from '@/lib/query-client'
 
 function fullName(user: UserSummary): string {
@@ -68,7 +68,10 @@ function UserSearch() {
 
       {query.trim().length >= MINIMUM_QUERY_LENGTH && (
         <>
-          {!search.isPending && results.length === 0 && (
+          {/* Une recherche en échec disait « Aucun compte trouvé » : un serveur
+              en panne devenait « cette personne n'existe pas ». */}
+          {search.error && <ErrorLine error={search.error} />}
+          {!search.isPending && !search.error && results.length === 0 && (
             <p className="text-muted-foreground text-sm">Aucun compte trouvé.</p>
           )}
           <ul className="flex flex-col">
@@ -156,8 +159,22 @@ function RequestRow({ request }: { request: FriendRequest }) {
   )
 }
 
-function FriendRow({ friend }: { friend: UserSummary }) {
+/**
+ * Un ami, et ce qu'il m'a ouvert.
+ *
+ * Les deux liens ne s'affichent que si le partage existe. Ils étaient
+ * inconditionnels : chez un ami qui n'avait rien ouvert, le backend répondait
+ * 404 — correctement, la spec 04 §13 bis l'impose pour ne pas révéler
+ * l'existence d'une donnée fermée — et l'utilisateur voyait une erreur là où
+ * il attendait un journal.
+ *
+ * La réponse ne se déduit donc pas du 404, qui couvre aussi le compte suspendu
+ * et l'incident serveur : elle vient de mes propres accès, que `GET /friends/`
+ * renvoie avec chaque ami.
+ */
+function FriendRow({ friend }: { friend: Friend }) {
   const remove = useRemoveFriend()
+  const opened = friend.shares_diary || friend.shares_progress
 
   return (
     <li className="flex flex-col gap-2 border-b py-3 last:border-b-0">
@@ -187,14 +204,24 @@ function FriendRow({ friend }: { friend: UserSummary }) {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/amis/${friend.id}/journal`}>Son journal</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/amis/${friend.id}/progression`}>Sa progression</Link>
-        </Button>
-      </div>
+      {opened ? (
+        <div className="flex flex-wrap gap-2">
+          {friend.shares_diary && (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/amis/${friend.id}/journal`}>Son journal</Link>
+            </Button>
+          )}
+          {friend.shares_progress && (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/amis/${friend.id}/progression`}>Sa progression</Link>
+            </Button>
+          )}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          {friend.username} ne vous a ouvert ni son journal ni sa progression.
+        </p>
+      )}
     </li>
   )
 }
@@ -226,6 +253,21 @@ export function FriendsPage() {
           <UserSearch />
         </CardContent>
       </Card>
+
+      {requests.error && (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2" className="text-base">
+              Demandes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Sans cela, une panne se lisait comme « aucune demande » — et la
+                pastille de navigation restait muette. */}
+            <ErrorLine error={requests.error} />
+          </CardContent>
+        </Card>
+      )}
 
       {requestRows.length > 0 && (
         <Card>

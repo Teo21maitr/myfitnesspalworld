@@ -2,12 +2,17 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { FriendRequest, UserSummary } from '@/lib/api/types'
+import type { Friend, FriendRequest, UserSummary } from '@/lib/api/types'
 import { clearCsrfCookie, jsonResponse, seedCsrfCookie, stubFetch } from '@/test/fetch-mock'
 import { BASE_ROUTES, paginated } from '@/test/recipes'
 import { renderRoute } from '@/test/render'
 
 const BOB: UserSummary = { id: 2, username: 'bob', first_name: 'Bob', last_name: 'Martin' }
+
+/** Un ami, et ce qu'il a ouvert. Rien par défaut : c'est le cas courant. */
+function friend(overrides: Partial<Friend> = {}): Friend {
+  return { ...BOB, shares_diary: false, shares_progress: false, ...overrides }
+}
 
 function request(overrides: Partial<FriendRequest> = {}): FriendRequest {
   return {
@@ -22,7 +27,7 @@ function request(overrides: Partial<FriendRequest> = {}): FriendRequest {
 }
 
 interface Stubs {
-  friends?: UserSummary[]
+  friends?: Friend[]
   requests?: FriendRequest[]
   search?: UserSummary[]
 }
@@ -114,7 +119,7 @@ describe('Amis', () => {
     // Le message annonçant la révocation passe par un toast, vérifié par le
     // parcours de bout en bout.
     const user = userEvent.setup()
-    const spy = stubSocial({ friends: [BOB] })
+    const spy = stubSocial({ friends: [friend()] })
     renderRoute('/amis')
 
     await user.click(await screen.findByRole('button', { name: 'Retirer bob' }))
@@ -122,8 +127,8 @@ describe('Amis', () => {
     await waitFor(() => expect(sent(spy, '/friends/2/', 'DELETE')).toBeDefined())
   })
 
-  it('mène au journal et à la progression d’un ami', async () => {
-    stubSocial({ friends: [BOB] })
+  it('mène au journal et à la progression d’un ami qui les a ouverts', async () => {
+    stubSocial({ friends: [friend({ shares_diary: true, shares_progress: true })] })
     renderRoute('/amis')
 
     const row = (await screen.findByText('bob')).closest('li') as HTMLElement
@@ -135,6 +140,68 @@ describe('Amis', () => {
       'href',
       '/amis/2/progression',
     )
+  })
+
+  it('n’offre aucun lien chez un ami qui n’a rien ouvert', async () => {
+    // Le piège de l'étape : ces liens s'affichaient pour tout le monde, et
+    // menaient à un 404 « Contenu introuvable » présenté comme une panne.
+    stubSocial({ friends: [friend()] })
+    renderRoute('/amis')
+
+    const row = (await screen.findByText('bob')).closest('li') as HTMLElement
+    expect(within(row).queryByRole('link', { name: 'Son journal' })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('link', { name: 'Sa progression' })).not.toBeInTheDocument()
+    expect(row).toHaveTextContent('ne vous a ouvert ni son journal ni sa progression')
+  })
+
+  it('n’offre que ce qui est ouvert, quand un seul des deux l’est', async () => {
+    stubSocial({ friends: [friend({ shares_diary: true })] })
+    renderRoute('/amis')
+
+    const row = (await screen.findByText('bob')).closest('li') as HTMLElement
+    expect(within(row).getByRole('link', { name: 'Son journal' })).toBeInTheDocument()
+    expect(within(row).queryByRole('link', { name: 'Sa progression' })).not.toBeInTheDocument()
+  })
+
+  it('dit qu’une recherche a échoué plutôt que « aucun compte trouvé »', async () => {
+    const user = userEvent.setup()
+    stubFetch(
+      [
+        ...BASE_ROUTES,
+        { match: '/friends/', respond: () => jsonResponse(paginated([])) },
+        { match: '/friend-requests/', respond: () => jsonResponse(paginated([])) },
+        {
+          match: '/users/search/',
+          respond: () =>
+            jsonResponse({ code: 'server_error', message: 'Erreur serveur.', errors: {} }, 500),
+        },
+      ],
+      () => jsonResponse(paginated([])),
+    )
+    renderRoute('/amis')
+
+    await user.type(await screen.findByLabelText('Chercher quelqu’un'), 'bo')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Erreur serveur/)
+    expect(screen.queryByText('Aucun compte trouvé.')).not.toBeInTheDocument()
+  })
+
+  it('signale une liste de demandes en échec', async () => {
+    stubFetch(
+      [
+        ...BASE_ROUTES,
+        { match: '/friends/', respond: () => jsonResponse(paginated([])) },
+        {
+          match: '/friend-requests/',
+          respond: () =>
+            jsonResponse({ code: 'server_error', message: 'Erreur serveur.', errors: {} }, 500),
+        },
+      ],
+      () => jsonResponse(paginated([])),
+    )
+    renderRoute('/amis')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Erreur serveur/)
   })
 
   it('invite à chercher quand on n’a pas encore d’amis', async () => {

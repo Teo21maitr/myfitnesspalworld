@@ -1,5 +1,5 @@
 import { api } from '@/lib/api/client'
-import type { FriendRequest, Paginated, UserSummary } from '@/lib/api/types'
+import type { Friend, FriendRequest, Paginated, UserSummary } from '@/lib/api/types'
 
 export const friendsQueryKey = ['friends'] as const
 export const friendRequestsQueryKey = ['friends', 'requests'] as const
@@ -8,7 +8,7 @@ export const userSearchQueryKey = (query: string) => ['friends', 'search', query
 export const searchUsers = (query: string) =>
   api.get<Paginated<UserSummary>>('/users/search/', { params: { q: query } })
 
-export const fetchFriends = () => api.get<Paginated<UserSummary>>('/friends/')
+export const fetchFriends = () => api.get<Paginated<Friend>>('/friends/')
 
 /** Retire un ami **et** révoque les partages qui le visaient (spec 01 §17). */
 export const removeFriend = (userId: number) => api.delete<void>(`/friends/${userId}/`)

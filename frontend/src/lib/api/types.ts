@@ -175,6 +175,18 @@ export interface UserSummary {
   last_name: string
 }
 
+/**
+ * Un ami, et ce qu'il m'a ouvert (spec 04 §12).
+ *
+ * Les deux drapeaux portent sur **mes** accès, pas sur l'existence de ses
+ * données : ils permettent de n'offrir « Son journal » que lorsque le lien
+ * aboutit, plutôt que de laisser cliquer vers un 404.
+ */
+export interface Friend extends UserSummary {
+  shares_diary: boolean
+  shares_progress: boolean
+}
+
 export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled'
 
 export interface FriendRequest {
