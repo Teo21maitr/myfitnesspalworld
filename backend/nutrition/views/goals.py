@@ -2,7 +2,6 @@
 
 from datetime import date
 
-from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.exceptions import APIException, NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -22,12 +21,13 @@ from nutrition.serializers import (
     OnboardingSerializer,
 )
 from nutrition.services import goals as goals_service
+from nutrition.services import onboarding as onboarding_service
 from nutrition.services.calculation import (
     ESTIMATION_NOTICE,
     collect_warnings,
     estimate_from_profile_data,
 )
-from progress.models import WeightEntry
+from nutrition.services.onboarding import OnboardingAlreadyCompleted
 
 
 class AlreadyOnboarded(APIException):
@@ -63,44 +63,14 @@ class OnboardingView(APIView):
     permission_classes = [IsAuthenticated, IsActiveAccount]
 
     def post(self, request: Request) -> Response:
-        profile = request.user.profile
-        if profile.onboarding_completed:
-            raise AlreadyOnboarded
-
         serializer = OnboardingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        today = date.today()
 
-        with transaction.atomic():
-            profile.birth_date = data["birth_date"]
-            profile.sex_for_calculation = data["sex_for_calculation"]
-            profile.height_cm = data["height_cm"]
-            profile.activity_level = data["activity_level"]
-            profile.goal_type = data["goal_type"]
-            profile.goal_rate_kg_per_week = data.get("goal_rate_kg_per_week")
-            profile.target_weight_kg = data.get("target_weight_kg")
-            profile.onboarding_completed = True
-            profile.full_clean()
-            profile.save()
-
-            WeightEntry.objects.update_or_create(
-                user=request.user,
-                date=today,
-                defaults={"weight_kg": data["weight_kg"]},
-            )
-
-            goal = goals_service.create_goal(
-                request.user,
-                start_date=today,
-                daily_calories=data["daily_calories"],
-                protein_g=data["protein_g"],
-                carbs_g=data["carbs_g"],
-                fat_g=data["fat_g"],
-                fiber_g=data.get("fiber_g"),
-                calories_source=data["calories_source"],
-                macros_source=data["macros_source"],
-            )
+        try:
+            goal = onboarding_service.complete_onboarding(request.user, **data)
+        except OnboardingAlreadyCompleted as error:
+            raise AlreadyOnboarded from error
 
         warnings = collect_warnings(
             sex=data["sex_for_calculation"],
