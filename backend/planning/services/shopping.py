@@ -22,7 +22,7 @@ from diary.models import EntryType
 from diary.services.day import day_entries
 from nutrition.models import Food
 from nutrition.services.quantities import resolve_factor
-from planning.models import ItemSource, ShoppingList, ShoppingListItem
+from planning.models import ItemSource, MealPlanEntry, ShoppingList, ShoppingListItem
 from recipes.models import Recipe
 
 
@@ -188,6 +188,64 @@ def _recipe_entry_lines(entry) -> list[Line]:
             quantity=Decimal(ingredient.quantity) * scale,
             unit_label=ingredient.unit_label,
             source_type=ItemSource.DIARY,
+        )
+        for ingredient in recipe.ingredients.all()
+    ]
+
+
+def lines_from_meal_plan(user: User, meal_plan_id: int) -> list[Line]:
+    """Ce qu'un plan verse au panier (spec 01 §16).
+
+    Mêmes règles qu'une journée de journal : une recette y verse ses
+    **ingrédients** mis à l'échelle des portions prévues — on n'achète pas des
+    portions de blanquette — et ce qui n'a plus de source ne verse rien.
+    """
+    from planning.models import MealPlan, PlanEntryType
+
+    plan = MealPlan.objects.filter(pk=meal_plan_id, owner=user).first()
+    if plan is None:
+        return []
+
+    lines: list[Line] = []
+    entries = (
+        MealPlanEntry.objects.filter(meal_plan_day__meal_plan=plan)
+        .select_related("food", "recipe")
+        .prefetch_related("recipe__ingredients__food")
+    )
+
+    for entry in entries:
+        if entry.entry_type == PlanEntryType.FOOD and entry.food is not None:
+            lines.append(
+                Line(
+                    name=entry.food.name,
+                    food=entry.food,
+                    quantity=entry.quantity,
+                    unit_label=entry.unit_label,
+                    source_type=ItemSource.MEAL_PLAN,
+                )
+            )
+        elif entry.entry_type == PlanEntryType.RECIPE and entry.recipe is not None:
+            lines.extend(_plan_recipe_lines(entry))
+
+    return lines
+
+
+def _plan_recipe_lines(entry) -> list[Line]:
+    """Ingrédients d'une recette planifiée, à l'échelle des portions prévues."""
+    recipe = entry.recipe
+    servings = Decimal(recipe.servings)
+    if servings <= 0:
+        return []
+
+    share = Decimal(entry.quantity) / servings
+
+    return [
+        Line(
+            name=ingredient.food.name if ingredient.food else recipe.name,
+            food=ingredient.food,
+            quantity=Decimal(ingredient.quantity) * share,
+            unit_label=ingredient.unit_label,
+            source_type=ItemSource.MEAL_PLAN,
         )
         for ingredient in recipe.ingredients.all()
     ]

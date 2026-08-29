@@ -1,4 +1,4 @@
-"""Routes de la liste de courses, montées sous `/api/v1/shopping-lists/`."""
+"""Routes du planning et de la liste de courses (spec 04 §8, §11)."""
 
 from django.urls import path
 
@@ -14,4 +14,16 @@ shopping_list_patterns = [
         views.ShoppingListItemDetailView.as_view(),
         name="item-detail",
     ),
+]
+
+meal_plan_patterns = [
+    path("", views.MealPlanListCreateView.as_view(), name="list"),
+    path("generate/", views.MealPlanGenerateView.as_view(), name="generate"),
+    path("<int:pk>/", views.MealPlanDetailView.as_view(), name="detail"),
+    path(
+        "<int:pk>/regenerate-entry/",
+        views.MealPlanRegenerateMealView.as_view(),
+        name="regenerate-entry",
+    ),
+    path("<int:pk>/add-to-diary/", views.MealPlanAddToDiaryView.as_view(), name="add-to-diary"),
 ]
