@@ -738,3 +738,61 @@ export interface PlanProposal {
 }
 
 export type MealPlanTask = AsyncTask<PlanProposal>
+
+/**
+ * Contribution d'un aliment à un nutriment sur une période (spec 01 §21).
+ *
+ * `share` est une part du total **connu** : quand l'analyse est partielle,
+ * c'est un minorant, jamais un pourcentage exact.
+ */
+export interface AnalysisSource {
+  name: string
+  total: string
+  entries: number
+  share: number
+}
+
+/** Réponse de `GET /analysis/food/`. */
+export interface NutrientAnalysis {
+  nutrient: string
+  label: string
+  from: string
+  to: string
+  /** Nul quand aucune entrée ne renseigne ce nutriment. */
+  total: string | null
+  sources: AnalysisSource[]
+  /** Entrées qui ne renseignent pas ce nutriment. Elles ne valent pas zéro. */
+  unknown_entries: number
+  /** Dénominateur des moyennes : les journées qui portent une entrée. */
+  logged_days: number
+  is_partial: boolean
+}
+
+/** Une journée **tenue** d'un rapport. */
+export interface ReportDay {
+  date: string
+  entries: number
+  target_calories: string | null
+  weight_kg: string | null
+  totals: Record<string, string | null>
+  incomplete_nutrients: string[]
+}
+
+/** Réponse de `GET /reports/summary/` et `GET /analysis/weekly/`. */
+export interface PeriodReport {
+  from: string
+  to: string
+  days: ReportDay[]
+  /** Moyennes sur les journées tenues, `null` quand rien n'a été mesuré. */
+  averages: Record<string, string | null>
+  adherence: { days_measured: number; days_within_goal: number }
+  top_foods: AnalysisSource[]
+  logged_days: number
+  calendar_days: number
+  weight_change: string | null
+  weight: {
+    points: ChartPoint[]
+    target: string | null
+    trend_per_week: string | null
+  }
+}

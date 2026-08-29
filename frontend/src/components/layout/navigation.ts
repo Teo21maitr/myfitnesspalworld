@@ -2,7 +2,9 @@ import {
   Apple,
   BookOpen,
   CalendarDays,
+  ChartNoAxesColumn,
   ChefHat,
+  FileText,
   Home,
   ScanBarcode,
   ScanEye,
@@ -81,6 +83,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/progression', label: 'Progression', Icon: TrendingUp },
       { to: '/objectifs', label: 'Objectifs', Icon: Target },
+      { to: '/analyse', label: 'Analyse', Icon: ChartNoAxesColumn },
+      { to: '/rapports', label: 'Rapports', Icon: FileText },
     ],
   },
   {

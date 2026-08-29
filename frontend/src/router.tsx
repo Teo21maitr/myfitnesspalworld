@@ -9,6 +9,8 @@ import {
   RequireOnboarding,
 } from '@/features/auth/require-auth'
 import { AccountPage } from '@/pages/account-page'
+import { AnalysisPage } from '@/pages/analysis/analysis-page'
+import { ReportsPage } from '@/pages/analysis/reports-page'
 import { EditFoodPage } from '@/pages/foods/edit-food-page'
 import { FoodDetailPage } from '@/pages/foods/food-detail-page'
 import { FoodSearchPage } from '@/pages/foods/food-search-page'
@@ -111,6 +113,8 @@ export const routes = [
       { path: 'amis/:userId/progression', element: <SharedProgressPage /> },
       { path: 'partages', element: <SharesPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
+      { path: 'analyse', element: <AnalysisPage /> },
+      { path: 'rapports', element: <ReportsPage /> },
       { path: 'compte', element: <AccountPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

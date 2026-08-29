@@ -80,6 +80,14 @@ export interface RequestOptions extends RequestInit {
   json?: unknown
   /** Paramètres de requête ajoutés à l'URL. */
   params?: Record<string, string | number | boolean | undefined>
+  /**
+   * Réponse rendue en `Blob` plutôt que parsée.
+   *
+   * Nécessaire aux exports : lire un PDF comme du texte le corromprait
+   * (spec 04 §17). Les erreurs restent traitées normalement, le backend
+   * répondant alors du JSON.
+   */
+  blob?: boolean
 }
 
 function buildUrl(path: string, params?: RequestOptions['params']): string {
@@ -96,7 +104,7 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
 
 /** Exécute la requête et convertit les échecs en `ApiError` / `NetworkError`. */
 async function performRequest<T>(path: string, options: RequestOptions): Promise<T> {
-  const { json, params, headers, ...init } = options
+  const { json, params, headers, blob, ...init } = options
   const method = (init.method ?? 'GET').toUpperCase()
 
   const requestHeaders = new Headers(headers)
@@ -132,6 +140,11 @@ async function performRequest<T>(path: string, options: RequestOptions): Promise
   }
 
   const isJson = response.headers.get('Content-Type')?.includes('application/json') ?? false
+
+  if (blob && response.ok) {
+    return (await response.blob()) as T
+  }
+
   const payload: unknown = isJson ? await response.json() : await response.text()
 
   if (!response.ok) {
@@ -254,4 +267,7 @@ export const api = {
     apiRequest<T>(path, { ...options, method: 'PATCH', json }),
   delete: <T>(path: string, json?: unknown, options?: RequestOptions) =>
     apiRequest<T>(path, { ...options, method: 'DELETE', json }),
+  /** POST rendant un fichier binaire (exports CSV et PDF). */
+  download: (path: string, json?: unknown, options?: RequestOptions) =>
+    apiRequest<Blob>(path, { ...options, method: 'POST', json, blob: true }),
 }
