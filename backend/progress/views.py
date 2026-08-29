@@ -1,9 +1,7 @@
 """Vues du suivi de progression (spec 04 §14)."""
 
 from datetime import date as date_type
-from datetime import timedelta
 
-from django.utils import timezone
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +9,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.dates import parse_period as shared_parse_period
 from common.permissions import IsActiveAccount
 from progress.models import BodyMeasurementEntry, WeightEntry
 from progress.serializers import (
@@ -134,25 +133,10 @@ class ProgressChartView(APIView):
 
 
 def parse_period(raw_from: str | None, raw_to: str | None) -> tuple[date_type, date_type]:
-    """Intervalle demandé, borné pour que la réponse reste finie."""
-    end = parse_date(raw_to, "to") or timezone.localdate()
-    start = parse_date(raw_from, "from") or end - timedelta(days=charts.DEFAULT_PERIOD_DAYS - 1)
-
-    if start > end:
-        raise ValidationError({"from": "La date de début doit précéder la date de fin."})
-
-    if (end - start).days + 1 > charts.MAX_PERIOD_DAYS:
-        raise ValidationError({"from": "Période trop longue : deux ans au maximum."})
-
-    return start, end
-
-
-def parse_date(raw: str | None, field: str) -> date_type | None:
-    """Date d'un paramètre de requête, `None` s'il est absent."""
-    if not raw:
-        return None
-
-    try:
-        return date_type.fromisoformat(raw)
-    except ValueError as error:
-        raise ValidationError({field: "Date invalide. Format attendu : AAAA-MM-JJ."}) from error
+    """Intervalle des courbes : 90 jours par défaut, deux ans au maximum."""
+    return shared_parse_period(
+        raw_from,
+        raw_to,
+        default_days=charts.DEFAULT_PERIOD_DAYS,
+        max_days=charts.MAX_PERIOD_DAYS,
+    )

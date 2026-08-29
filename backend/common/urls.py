@@ -4,7 +4,13 @@ from django.urls import include, path
 
 from accounts.urls import account_patterns, auth_patterns, profile_patterns
 from ai.urls import ai_patterns
-from diary.urls import dashboard_patterns, diary_patterns, meal_type_patterns
+from diary.urls import (
+    analysis_patterns,
+    dashboard_patterns,
+    diary_patterns,
+    meal_type_patterns,
+    report_patterns,
+)
 from nutrition.urls import barcode_patterns, food_patterns, nutrition_profile_patterns
 from planning.urls import meal_plan_patterns, shopping_list_patterns
 from progress.urls import progress_patterns
@@ -33,6 +39,8 @@ urlpatterns = [
     path("diary/", include((diary_patterns, "diary"))),
     path("meal-types/", include((meal_type_patterns, "meal-types"))),
     path("dashboard/", include((dashboard_patterns, "dashboard"))),
+    path("analysis/", include((analysis_patterns, "analysis"))),
+    path("reports/", include((report_patterns, "reports"))),
     path("account/", include((account_patterns, "account"))),
     path("progress/", include((progress_patterns, "progress"))),
     path("recipes/", include((recipe_patterns, "recipes"))),

@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from . import views, views_analysis
 
 diary_patterns = [
     path("", views.DiaryDayView.as_view(), name="day"),
@@ -26,4 +26,15 @@ meal_type_patterns = [
 
 dashboard_patterns = [
     path("", views.DashboardView.as_view(), name="dashboard"),
+]
+
+analysis_patterns = [
+    path("food/", views_analysis.FoodAnalysisView.as_view(), name="food"),
+    path("weekly/", views_analysis.WeeklyAnalysisView.as_view(), name="weekly"),
+]
+
+report_patterns = [
+    path("summary/", views_analysis.ReportSummaryView.as_view(), name="summary"),
+    path("csv/", views_analysis.ReportCsvView.as_view(), name="csv"),
+    path("pdf/", views_analysis.ReportPdfView.as_view(), name="pdf"),
 ]

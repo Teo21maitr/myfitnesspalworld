@@ -191,6 +191,9 @@ REST_FRAMEWORK = {
         "off_barcode": "30/min",
         "off_search": "10/min",
         "ai": "30/hour",
+        # Un export parcourt toute une période et compose un fichier : c'est la
+        # lecture la plus lourde de l'application.
+        "reports": "20/min",
     },
 }
 
