@@ -638,8 +638,35 @@ POST /reports/pdf/
 POST /reports/csv/
 ```
 
-PDF async si nécessaire.
-CSV synchrone si suffisamment léger.
+`summary` rend la période : les journées **tenues** avec leurs totaux, leur
+objectif du jour et la pesée éventuelle, puis les moyennes, le respect de
+l'objectif calorique, les aliments les plus caloriques et la série de poids —
+celle-là même que `/progress/charts/` produit, moyenne mobile comprise.
+
+**Une journée sans entrée n'est pas une journée à zéro.** Elle n'apparaît pas
+dans `days` et n'entre dans aucune moyenne : diviser par la longueur du
+calendrier reviendrait à affirmer qu'on n'y a rien mangé, ce qui donnerait un
+chiffre plausible et faux. `logged_days` et `calendar_days` sont donc renvoyés
+tous les deux, et l'interface affiche le dénominateur à côté de la moyenne.
+
+Une période entièrement vide ne renvoie pas des moyennes nulles mais `null` :
+la même règle que les nutriments inconnus (spec 01 §8), appliquée à la journée.
+
+La période couvre 30 jours par défaut et ne peut excéder deux ans — même borne
+que les courbes, dont les rapports reprennent la série.
+
+Les deux exports reçoivent `from` et `to`, passent par le **même** rapport que
+`summary`, et répondent un fichier attaché.
+
+Le CSV porte une ligne par journée tenue et une colonne par nutriment. Une
+valeur inconnue y reste **vide**, jamais `0`, et les décimales emploient le
+point : une virgule décalerait les colonnes dans un tableur configuré
+autrement.
+
+Les deux exports sont **synchrones**. Sur quatre-vingt-dix jours et trois cent
+soixante entrées, la composition du PDF tient en deux dixièmes de seconde :
+l'asynchrone que cette spec réservait au « si nécessaire » ne l'est pas encore.
+Un test mesure cette durée et échouera si elle dérive.
 
 ## 18. Analysis
 
@@ -647,6 +674,26 @@ CSV synchrone si suffisamment léger.
 GET /analysis/food/?from=...&to=...&nutrient=protein
 GET /analysis/weekly/?from=...
 ```
+
+`food` classe les aliments par ce qu'ils ont apporté d'un nutriment, avec leur
+part du total. Le regroupement porte sur le **nom du snapshot** : c'est ce que
+l'utilisateur a journalisé, et cela reste juste pour un aliment supprimé depuis
+(spec 01 §6).
+
+Une entrée qui ne renseigne pas ce nutriment est comptée dans `unknown_entries`
+et l'analyse est marquée `is_partial`. Le total additionne alors ce qui est
+connu, et **chaque part est un minorant** : le dénominateur est sous-estimé,
+donc tous les pourcentages sont surévalués. L'interface doit le dire plutôt que
+de laisser croire qu'ils somment à cent.
+
+`nutrient` accepte les vingt champs du référentiel ; `energy_kcal` par défaut.
+Un nutriment inconnu est refusé en 400 : les glucides nets, par exemple, sont
+une soustraction d'affichage et non une colonne.
+
+`weekly` est le rapport de `/reports/summary/` appliqué aux sept jours qui
+suivent `from` — la semaine en cours par défaut. Il passe par le même service :
+deux résumés distincts finiraient par afficher deux moyennes pour les mêmes
+journées.
 
 ## 19. Notifications
 

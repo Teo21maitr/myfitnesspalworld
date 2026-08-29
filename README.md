@@ -34,6 +34,8 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
 - [Créer un aliment depuis son étiquette](#créer-un-aliment-depuis-son-étiquette)
 - [Planification des repas](#planification-des-repas)
+- [Une seule navigation](#une-seule-navigation)
+- [Analyse et rapports](#analyse-et-rapports)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
@@ -1008,6 +1010,72 @@ que l'utilisateur n'a pas confirmé. Confirmé, le plan s'ajoute par-dessus : il
 
 Les entrées créées sont indépendantes et snapshotées ; modifier ou supprimer le plan ensuite ne
 touche pas ce qui a été journalisé.
+
+## Une seule navigation
+
+La navigation vivait dans **deux listes** : une pour la barre latérale desktop, une pour mobile.
+Chaque étape remplissait la première, puis rapiéçait l'accès mobile en glissant un bouton dans
+« Mon compte ». Cinq étapes plus tard, « Mes repas » n'était atteignable par aucun geste au doigt,
+et « Ajout rapide » par aucun clic. Ce n'était pas un lien oublié : c'était une conception qui
+garantissait l'oubli.
+
+[`navigation.ts`](frontend/src/components/layout/navigation.ts) ne porte donc plus qu'**une** liste,
+groupée en six sections, rendue deux fois : la barre latérale à partir de `md`, un tiroir en deçà.
+La barre du bas garde ses quatre raccourcis et son `+` que la spec 06 §2 fixe — ce sont des
+raccourcis vers les écrans du quotidien, pas la navigation, qui vit entièrement dans le tiroir.
+
+Le vrai livrable est le garde-fou :
+[`navigation.test.ts`](frontend/src/components/layout/navigation.test.ts) parcourt les routes
+déclarées dans [`router.tsx`](frontend/src/router.tsx) et échoue si l'une d'elles n'est atteignable
+ni par la navigation, ni par une liste explicite de routes **contextuelles** — une fiche d'aliment
+s'ouvre depuis la recherche, pas depuis un menu. Ajouter une page sans la rendre atteignable devient
+impossible sans le voir. Le parcours de bout en bout
+[`analysis.spec.ts`](frontend/e2e/analysis.spec.ts) complète l'autre moitié : sur un écran de
+375 px, il ouvre le tiroir et vérifie que **chaque** destination s'affiche vraiment.
+
+## Analyse et rapports
+
+### Une journée sans entrée n'est pas une journée à zéro
+
+C'est la règle de cette partie, et elle décide de tous les chiffres qu'on y lit.
+
+« Tu as consommé 1 640 kcal par jour cette semaine. » Sur sept jours dont deux non journalisés, ce
+chiffre est faux — et il ne se voit pas, parce qu'il est plausible. Diviser par sept revient à
+affirmer qu'on n'a rien mangé ces deux jours-là. Diviser par cinq répond à une autre question, et
+c'est la bonne : *sur les journées que tu as tenues*, voilà ta moyenne.
+
+Les moyennes portent donc sur les journées journalisées, et
+[`daily_totals`](backend/diary/services/analysis.py) ne fabrique aucune journée vide. `logged_days`
+et `calendar_days` voyagent ensemble jusqu'à l'écran, qui affiche le dénominateur à côté de la
+moyenne. Une période entièrement vide renvoie `null`, jamais zéro.
+
+C'est la règle « inconnu n'est pas zéro » de la spec 01 §8, appliquée à la journée entière.
+
+### Un pourcentage calculé sur un total partiel est partiel
+
+`GET /analysis/food/` classe les aliments par ce qu'ils ont apporté d'un nutriment. Si dix entrées
+en portent et que trois ne le renseignent pas, le dénominateur est sous-estimé et **chaque** part
+est surévaluée. La réponse porte alors `is_partial` et `unknown_entries`, et l'écran annonce des
+minorants plutôt que de laisser croire à cent pour cent.
+
+Le regroupement se fait sur le **nom du snapshot** : c'est ce que l'utilisateur a journalisé, et
+cela reste juste pour un aliment supprimé depuis.
+
+### Exports
+
+`POST /reports/csv/` et `POST /reports/pdf/` passent par le même rapport que
+`GET /reports/summary/` : la période exportée ne peut pas différer de celle affichée.
+
+Le CSV porte une ligne par journée tenue, une colonne par nutriment, un point décimal et une
+cellule **vide** — pas un zéro — pour ce qui n'est pas renseigné.
+
+Le PDF passe par **ReportLab**, dont les polices intégrées rendent les accents sans embarquer de
+fichier de police ni dépendre d'une bibliothèque système : ce qui compte pour Railway.
+
+Les deux sont **synchrones**, et c'est une mesure qui l'a décidé, pas une intuition : sur
+quatre-vingt-dix jours et trois cent soixante entrées, le rapport se compose en 0,15 s et le PDF
+en 0,02 s. Un test mesure cette durée ; le jour où il échouera, le socle de tâches asynchrones est
+déjà là.
 
 ## Tests, lint et typecheck
 
