@@ -470,6 +470,20 @@ l'email** (spec 01 §1). Elle ne renvoie que des comptes actifs, jamais
 l'appelant, et n'expose de chaque compte que son nom d'utilisateur et son état
 civil.
 
+`GET /friends/` ajoute à chaque ami deux drapeaux : `shares_diary` et
+`shares_progress`. Ils ne renseignent pas sur les données de l'ami, mais sur les
+**accès de l'appelant** — ses propres `SharePermission` reçues, portée globale
+comprise.
+
+Ils existent pour que l'interface n'offre « Son journal » que lorsque le lien
+aboutit. Sans eux, le bouton s'affichait pour tous les amis et menait au 404 que
+la §13 bis impose ; l'utilisateur lisait une panne là où il n'y avait qu'une
+absence de partage. Déduire cette absence du 404 aurait été pire : le même code
+couvre le compte suspendu et l'incident serveur.
+
+`/users/search/` ne les porte pas. Elle répond sur des inconnus, et leurs
+partages ne la concernent pas.
+
 Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation :
 vouloir la même chose que l'autre, c'est être d'accord.
 
@@ -499,13 +513,20 @@ Payload :
 Pour `app_users`, une visibilité globale suffit — et `target_user_id` doit alors
 être absent : un partage à tous ne vise personne.
 
-`resource_type` accepte `food`, `recipe`, `saved_meal`, `diary` et `progress`.
-Les photos de progression n'en font pas partie et ne doivent jamais y entrer
-(spec 01 §20).
+`resource_type` accepte `food`, `recipe`, `saved_meal`, `shopping_list`,
+`diary` et `progress`. Les photos de progression n'en font pas partie et ne
+doivent jamais y entrer (spec 01 §20).
 
-`resource_id` est **nul** pour `diary` et `progress` : le journal n'est pas une
-ligne mais l'ensemble des journées de son propriétaire (spec 05 §8). Le fournir
-est refusé en 400.
+`resource_id` est **nul** pour `diary` et `progress`, et pour eux seuls : le
+journal n'est pas une ligne mais l'ensemble des journées de son propriétaire
+(spec 05 §8). Le fournir est refusé en 400. Une liste de courses, elle, **en a
+un** — l'avoir rangée un temps parmi les ressources sans identifiant rendait
+son partage impossible, et le message d'erreur parlait du journal.
+
+`GET /shares/received/` ne liste que les partages **nommés**. Un partage
+`app_users` ne vise personne : l'y faire entrer remplirait la page des partages
+globaux d'inconnus. Il reste lisible, et se découvre par les drapeaux de
+`GET /friends/` (§12).
 
 Le couple `(resource_type, resource_id)` forme la clé de lecture. Les
 identifiants sont propres à chaque table : la recette 42 et l'aliment 42

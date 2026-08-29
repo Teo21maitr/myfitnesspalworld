@@ -30,6 +30,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Progression](#progression)
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
+- [Comptes de démonstration](#comptes-de-démonstration)
 - [Liste de courses](#liste-de-courses)
 - [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
 - [Créer un aliment depuis son étiquette](#créer-un-aliment-depuis-son-étiquette)
@@ -686,6 +687,29 @@ Le contrôle qui tranche, sur la vraie base : deux comptes amis, trois partages,
 Il ne doit rester **aucune** `SharePermission` entre eux, et l'ex-ami perdre la recette, le
 journal et la progression d'un coup.
 
+### Une porte qu'on montre doit s'ouvrir
+
+Cette section disait déjà, à propos des écrans partagés, qu'« offrir une action
+vouée au refus est déjà un défaut ». La même phrase condamnait les boutons de la page Amis, et
+personne ne l'avait vue : « Son journal » et « Sa progression » s'affichaient pour **tous** les
+amis. Chez qui n'avait rien ouvert, le backend répondait `404 « Contenu introuvable. »` — comme il
+le doit — et l'utilisateur lisait une panne là où il n'y avait qu'une absence de partage.
+
+La tentation était de résoudre le problème en aval : garder les boutons et traduire le 404 en « cet
+ami ne vous a rien ouvert ». Ce serait **déduire une absence d'un code d'erreur**, alors que le même
+404 couvre le compte suspendu et, demain, l'incident serveur. On annoncerait une chose qu'on n'a pas
+vérifiée.
+
+La réponse vient donc de ce que l'appelant a déjà le droit de lire : **ses propres accès**.
+[`GET /friends/`](backend/social/views.py) joint à chaque ami `shares_diary` et `shares_progress`,
+calculés en une requête par [`opened_to`](backend/social/services/sharing.py). Cette fonction et
+`can_read` appliquent les mêmes règles — les deux portées, l'état du propriétaire — et un test les
+compare sur les quatre cas qui comptent : un bouton affiché que `can_read` refuserait serait le
+défaut d'aujourd'hui à l'envers.
+
+`GET /shares/received/` ne liste, lui, que les partages **nommés** : un partage ouvert à tous ne
+vise personne, et l'y faire entrer remplirait la page des partages globaux d'inconnus.
+
 ### Des routes séparées, jamais un paramètre
 
 La consultation partagée vit sous `/shared/` et ne fait que lire. Ajouter un `user_id` aux
@@ -724,6 +748,55 @@ Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation.
 Une demande d'ami n'émet aucune notification : le modèle `Notification` (spec 01 §24) n'existe
 pas encore. L'entrée « Amis » de la barre latérale porte une pastille tant que des demandes
 attendent.
+
+### Une liste de courses porte un identifiant
+
+`SharePermission` distingue les ressources désignées par une ligne de celles qui désignent leur
+propriétaire. La liste de courses manquait au premier groupe : la validation exigeait alors
+l'absence d'identifiant — avec un message parlant du journal — et une ligne créée sans lui n'ouvrait
+rien. Le partage annoncé depuis deux étapes ne fonctionnait pas.
+
+Il a survécu parce que les tests des listes de courses créaient les `SharePermission` **par
+l'ORM**. Le seul chemin que l'interface emprunte, `POST /shares/`, n'était jamais exercé pour ce
+type. Il l'est maintenant, pour chacun.
+
+## Comptes de démonstration
+
+```bash
+python manage.py seed_demo --reset
+```
+
+Fabrique quatre comptes actifs et remplis, pour essayer l'application sans rien saisir. Jusqu'ici,
+vérifier le partage supposait de créer deux comptes à la main et de leur inventer un journal — et
+une fonctionnalité qu'on n'essaie pas est une fonctionnalité qu'on ne corrige pas.
+
+| Compte | Rôle |
+| --- | --- |
+| `demo` | Le compte principal : 90 jours de journal, recettes, repas enregistrés, planning, courses, pesées |
+| `camille` | Amie, **partage** son journal, sa progression et une recette |
+| `mathis` | Ami, **ne partage rien** — c'est lui qui montre qu'aucun bouton n'est proposé |
+| `sofia` | Demande d'ami en attente |
+
+Le mot de passe est **tiré au hasard et affiché une seule fois** : aucun mot de passe n'entre dans
+le dépôt, pas même pour un compte fictif. `--password` permet d'en imposer un, `--days` de raccourcir
+l'historique.
+
+La commande **refuse de s'exécuter** avec les réglages de production, exige `--reset` plutôt que
+d'écraser en silence, et s'arrête si aucun aliment Ciqual n'est en base — un compte de démonstration
+sans référentiel ne démontrerait rien.
+
+### Par les services, jamais par l'ORM nu
+
+Tout passe par les services métier : `create_food_entry` pour les snapshots, `create_goal` pour
+l'historique d'objectifs, le service de nutrition des recettes pour les caches,
+`lines_from_meal_plan` pour la liste de courses. Écrire en direct produirait des entrées sans
+snapshot et des recettes au cache nul — un compte qui ne ressemble pas à un vrai compte ne démontre
+rien, et masque justement les défauts qu'il devrait révéler.
+
+Une douzaine de journées sont laissées **volontairement vides** et dispersées : sans elles, la règle
+des moyennes sur les journées tenues resterait une affirmation du README au lieu de se voir à
+l'écran. Le tirage a une graine fixe : deux exécutions donnent le même jeu, sans quoi un défaut
+observé une fois ne se reproduirait pas.
 
 ## Liste de courses
 
