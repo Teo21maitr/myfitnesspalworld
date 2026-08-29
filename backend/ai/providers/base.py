@@ -58,12 +58,24 @@ class AIProvider(Protocol):
         prompt: str,
         schema: dict,
         images: tuple[ImagePart, ...] = (),
+        max_tokens: int | None = None,
+        effort: str | None = None,
     ) -> dict:
         """Renvoie un objet JSON conforme à `schema`.
 
         Contraindre la sortie est la responsabilité du fournisseur, qui seul
         connaît le mécanisme natif de son API. La validation *métier* reste au
         dessus : un schéma respecté ne garantit pas une valeur sensée.
+
+        `max_tokens` borne la réponse. Le laisser à `None` prend la valeur par
+        défaut du fournisseur — suffisante pour une liste d'aliments, pas pour
+        une journée de plan, dont la réponse est plusieurs fois plus longue.
+        Une réponse tronquée n'est pas du JSON valide : mieux vaut un budget
+        mesuré qu'un échec de parsing inexplicable.
+
+        `effort` règle la profondeur de réflexion. Une tâche dont la structure
+        est déjà imposée par le schéma n'en demande pas beaucoup, et la
+        réflexion se paie en jetons comme en secondes.
 
         Lève `AIProviderUnavailable` ou `AIResponseUnusable`, jamais une
         exception de bibliothèque tierce.

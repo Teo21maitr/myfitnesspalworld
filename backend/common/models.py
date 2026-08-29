@@ -70,6 +70,7 @@ class TaskType(models.TextChoices):
 
     MEAL_SCAN = "meal_scan", "Analyse de photo de repas"
     LABEL_SCAN = "label_scan", "Lecture d'étiquette nutritionnelle"
+    MEAL_PLANNER = "meal_planner", "Génération de plan de repas"
 
 
 class AsyncTask(models.Model):

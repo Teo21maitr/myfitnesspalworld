@@ -119,3 +119,25 @@ class TestResponseReading:
             AnthropicProvider._read(message)
 
         assert "personnel" not in str(leve.value)
+
+
+class TestTruncatedResponse:
+    """Une réponse coupée par le budget doit se dire comme telle.
+
+    Les jetons de réflexion s'imputent sur `max_tokens` : un budget trop serré
+    coupe la réponse en plein JSON, et le parsing échoue alors sans expliquer
+    pourquoi.
+    """
+
+    def test_une_reponse_coupee_est_annoncee(self):
+        bloc = type("B", (), {"type": "text", "text": '{"days": [{"date"'})()
+        message = type("M", (), {"content": [bloc], "stop_reason": "max_tokens"})()
+
+        with pytest.raises(AIResponseUnusable, match="coupée"):
+            AnthropicProvider._read(message)
+
+    def test_une_reponse_complete_est_lue(self):
+        bloc = type("B", (), {"type": "text", "text": '{"ok": true}'})()
+        message = type("M", (), {"content": [bloc], "stop_reason": "end_turn"})()
+
+        assert AnthropicProvider._read(message) == {"ok": True}

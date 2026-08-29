@@ -106,6 +106,50 @@ class AIService:
         self._close(log, status=AILogStatus.SUCCESS, output=f"{read} valeur(s) lue(s)")
         return result
 
+    def generate_meal_plan(
+        self, *, user, prompt: str, meal_names: list[str], dates: list[str], model: str
+    ) -> dict:
+        """Compose une journée de plan (spec 07 §7).
+
+        Le modèle rend des libellés et des quantités. **Aucune valeur
+        nutritionnelle** : le schéma n'en prévoit pas, et les totaux sur
+        lesquels la tolérance est mesurée sont recalculés à partir des fiches.
+        Ne pas lui demander de chiffres est la façon la plus sûre de ne pas s'y
+        fier.
+        """
+        from ai.services.meal_plan import DAY_EFFORT, DAY_MAX_TOKENS
+
+        log = AITaskLog.objects.create(
+            user=user,
+            task_type=TaskType.MEAL_PLANNER,
+            status=AILogStatus.RUNNING,
+            provider=self._provider.name,
+            model=model,
+            input_summary=f"{len(dates)} jour(s), {len(meal_names)} repas",
+        )
+
+        try:
+            payload = self._provider.structured_completion(
+                model=model,
+                system=prompts.MEAL_PLAN_SYSTEM,
+                prompt=prompt,
+                schema=schemas.meal_plan_json_schema(meal_names=meal_names, dates=dates),
+                max_tokens=DAY_MAX_TOKENS,
+                effort=DAY_EFFORT,
+            )
+            result = schemas.validate_ai_output(schemas.MealPlanResultSerializer, payload)
+        except AIProviderError as error:
+            self._close(log, status=AILogStatus.FAILED, error=str(error))
+            raise
+
+        proposed = len(result["recipes"])
+        self._close(
+            log,
+            status=AILogStatus.SUCCESS,
+            output=f"{len(result['days'])} jour(s), {proposed} recette(s) proposée(s)",
+        )
+        return result
+
     @staticmethod
     def _close(log: AITaskLog, *, status: str, output: str | None = None, error: str | None = None):
         log.status = status

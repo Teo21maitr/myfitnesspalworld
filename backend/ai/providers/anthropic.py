@@ -18,7 +18,11 @@ from .base import AIProviderUnavailable, AIResponseUnusable, ImagePart
 
 logger = logging.getLogger(__name__)
 
-#: Une réponse structurée de ce projet tient très largement dans cette limite.
+#: Budget par défaut, taillé pour une liste d'aliments détectés.
+#:
+#: Une journée de plan en demande davantage : mesuré à ~1 100 jetons, contre
+#: ~200 pour un scan de repas. Une réponse tronquée n'est pas du JSON valide et
+#: échoue au parsing sans dire pourquoi — d'où un budget explicite par tâche.
 MAX_TOKENS = 2048
 
 
@@ -55,6 +59,8 @@ class AnthropicProvider:
         prompt: str,
         schema: dict,
         images: tuple[ImagePart, ...] = (),
+        max_tokens: int | None = None,
+        effort: str | None = None,
     ) -> dict:
         sdk, client = self._client()
 
@@ -77,12 +83,15 @@ class AnthropicProvider:
         try:
             message = client.messages.create(
                 model=model,
-                max_tokens=self._max_tokens,
+                max_tokens=max_tokens or self._max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": content}],
                 # Sortie structurée native : le modèle ne peut pas répondre
                 # autre chose qu'un objet conforme au schéma.
-                output_config={"format": {"type": "json_schema", "schema": schema}},
+                output_config={
+                    "format": {"type": "json_schema", "schema": schema},
+                    **({"effort": effort} if effort else {}),
+                },
             )
         except (sdk.AuthenticationError, sdk.PermissionDeniedError) as error:
             # La clé est refusée. Le message d'erreur du fournisseur peut citer
@@ -103,6 +112,15 @@ class AnthropicProvider:
     @staticmethod
     def _read(message) -> dict:
         """Extrait l'objet JSON de la réponse."""
+        # Une réponse coupée par le budget n'est pas du JSON valide, et le dire
+        # explicitement évite un « n'a rien renvoyé » incompréhensible : les
+        # jetons de réflexion s'imputent sur `max_tokens`, et un prompt riche
+        # en consomme davantage.
+        if getattr(message, "stop_reason", None) == "max_tokens":
+            raise AIResponseUnusable(
+                "La réponse du fournisseur d'IA a été coupée avant d'être complète."
+            )
+
         text = "".join(
             block.text for block in message.content if getattr(block, "type", None) == "text"
         )

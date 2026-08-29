@@ -32,7 +32,7 @@ MEAL_SCAN_PROMPT = (
 
 LABEL_SCAN_SYSTEM = (
     "Tu lis l'étiquette nutritionnelle d'un produit alimentaire photographiée, "
-    "en français.\n"
+    "en français, ou dans une autre langue que tu devras détecter.\n"
     "Tu RECOPIES ce qui est écrit. Tu n'estimes rien, tu ne calcules rien, tu "
     "ne complètes rien de mémoire.\n"
     "Une valeur que tu ne peux pas lire — absente de l'étiquette, illisible, "
@@ -53,3 +53,113 @@ LABEL_SCAN_PROMPT = (
     "colonne pour 100 g ou 100 ml. "
     "Laisse à null tout ce que tu ne lis pas."
 )
+
+
+MEAL_PLAN_SYSTEM = (
+    "Tu composes des journées de repas équilibrées, en français.\n"
+    "Tu proposes des aliments désignés par des noms courants et génériques, "
+    "au singulier, sans marque : ils servent à interroger une base de données "
+    "nutritionnelle française.\n"
+    "Tu ne donnes JAMAIS de calories ni de valeurs nutritionnelles : elles "
+    "proviennent de la base, pas de toi. Tu ne donnes que des aliments et des "
+    "quantités.\n"
+    "Tu respectes les allergies sans exception. Tu évites les aliments "
+    "détestés. Tu privilégies les aliments aimés et les recettes déjà "
+    "enregistrées, qu'on te donne par leur nom exact.\n"
+    "Une recette inédite se déclare dans « recipes » et s'emploie ensuite par "
+    "son nom exact, avec le type « recipe » et l'unité « portion »."
+)
+
+
+def _listing(label: str, values: list[str]) -> str:
+    return f"{label} : {', '.join(values)}.\n" if values else ""
+
+
+def meal_plan_prompt(
+    *,
+    day: str,
+    targets: dict,
+    meal_names: list[str],
+    allergies: list[str],
+    liked: list[str],
+    disliked: list[str],
+    recipes: list[str],
+    frequent: list[str],
+    already_planned: list[str],
+    feedback: str | None = None,
+) -> str:
+    """Compose la demande d'une journée.
+
+    Une journée à la fois : mesuré contre l'API, une semaine entière dépasse
+    16 000 jetons de réponse et revient tronquée, quand une journée en tient
+    1 100. Découper rend aussi chaque correction locale — un jour hors
+    tolérance se rejoue seul.
+    """
+    cible = (
+        f"Objectifs de la journée : {targets['daily_calories']} kcal, "
+        f"{targets['protein_g']} g de protéines, {targets['carbs_g']} g de glucides, "
+        f"{targets['fat_g']} g de lipides.\n"
+    )
+
+    parties = [
+        f"Compose la journée du {day}.\n",
+        cible,
+        f"Repas à remplir, exactement ceux-ci : {', '.join(meal_names)}.\n",
+        _listing("Allergies, à ne jamais employer", allergies),
+        _listing("Aliments détestés, à éviter", disliked),
+        _listing("Aliments aimés, à privilégier", liked),
+        _listing("Recettes déjà enregistrées, utilisables par leur nom exact", recipes),
+        _listing("Aliments fréquemment consommés", frequent),
+        # Sans cette liste, chaque journée étant composée seule, la semaine
+        # répéterait le même déjeuner sept fois.
+        _listing("Déjà prévu les jours précédents, à varier", already_planned),
+    ]
+
+    if feedback:
+        parties.append(f"\n{feedback}\n")
+
+    return "".join(parties)
+
+
+def deviation_feedback(
+    deviations: dict[str, float], targets: dict, measured: list[tuple[str, str, str]] | None = None
+) -> str:
+    """Dit au modèle de combien sa proposition précédente s'écartait.
+
+    Les écarts sont ceux mesurés **sur les fiches de la base**, après
+    résolution : lui renvoyer ses propres estimations ne corrigerait rien.
+
+    `measured` lui donne en plus ce que ses quantités valaient réellement. Sans
+    cela il corrige à l'aveugle — il ignore ce que pèse « 80 g de flocons »
+    dans ce référentiel-ci, et une correction au jugé retombe à côté. Lui
+    fournir ces valeurs ne le fait pas devenir source de vérité : elles
+    viennent de la base, et c'est toujours la base qui tranchera.
+    """
+    lignes = [
+        f"- {nom} : {ecart:+.0f} % par rapport à la cible" for nom, ecart in deviations.items()
+    ]
+
+    parties = [
+        "Ta proposition précédente, une fois ses aliments retrouvés dans la base, "
+        "s'écartait des objectifs :\n",
+        "\n".join(lignes),
+    ]
+
+    if measured:
+        parties.append(
+            "\n\nVoici ce que valaient réellement tes quantités, d'après la base "
+            "(calories, puis protéines / glucides / lipides en grammes) :\n"
+            + "\n".join(
+                f"- {libelle} {quantite} : {energie} kcal"
+                for libelle, quantite, energie in measured
+            )
+        )
+
+    parties.append(
+        "\n\nCorrige les quantités et, si besoin, remplace des aliments. "
+        f"Rappel des cibles : {targets['daily_calories']} kcal, "
+        f"{targets['protein_g']} g de protéines, {targets['carbs_g']} g de glucides, "
+        f"{targets['fat_g']} g de lipides."
+    )
+
+    return "".join(parties)

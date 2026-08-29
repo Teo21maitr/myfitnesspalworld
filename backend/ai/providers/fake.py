@@ -68,9 +68,55 @@ class FakeProvider:
         prompt: str,
         schema: dict,
         images: tuple[ImagePart, ...] = (),
+        max_tokens: int | None = None,
+        effort: str | None = None,
     ) -> dict:
         # Le schéma dit quelle tâche est en cours : un fournisseur simulé qui
-        # répondrait toujours la même chose ferait échouer l'autre.
-        if "nutrition" in schema.get("properties", {}):
+        # répondrait toujours la même chose ferait échouer les autres.
+        properties = schema.get("properties", {})
+        if "nutrition" in properties:
             return {**LABEL, "nutrition": dict(LABEL["nutrition"])}
+        if "days" in properties:
+            return _fake_plan(schema)
         return {"items": [dict(detection) for detection in DETECTIONS]}
+
+
+#: Aliments proposés par le plan simulé. Présents dans l'extrait Ciqual
+#: versionné, pour que la résolution trouve de la matière.
+PLAN_LABELS = ("poulet", "abricot")
+
+
+def _fake_plan(schema: dict) -> dict:
+    """Plan simulé, calqué sur les dates et les repas réellement demandés.
+
+    Les énumérations du schéma portent l'information : les relire évite de
+    devoir la passer au fournisseur par un autre chemin, et garantit que la
+    réponse simulée est toujours cohérente avec la demande.
+    """
+    day_schema = schema["properties"]["days"]["items"]["properties"]
+    dates = day_schema["date"]["enum"]
+    meals = day_schema["meals"]["items"]["properties"]["meal"]["enum"]
+
+    return {
+        "days": [
+            {
+                "date": date,
+                "meals": [
+                    {
+                        "meal": meal,
+                        "items": [
+                            {
+                                "type": "food",
+                                "label": PLAN_LABELS[index % len(PLAN_LABELS)],
+                                "quantity": 150,
+                                "unit": "g",
+                            }
+                        ],
+                    }
+                    for index, meal in enumerate(meals)
+                ],
+            }
+            for date in dates
+        ],
+        "recipes": [],
+    }
