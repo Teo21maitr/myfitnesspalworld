@@ -45,3 +45,7 @@ whitenoise==6.12.0
 
 # Serveur WSGI de production
 gunicorn==26.1.0
+
+# L'Anses publie la table Ciqual en 7z, format que la bibliothèque standard ne
+# lit pas. Nécessaire en production : l'import tourne dans le conteneur.
+py7zr==1.1.3

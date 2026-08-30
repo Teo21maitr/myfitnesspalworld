@@ -1,26 +1,38 @@
 """Importe la table Ciqual dans le référentiel d'aliments (spec 11 §2).
 
-    python manage.py import_ciqual <dossier-ou-archive>
+    python manage.py import_ciqual <dossier-ou-archive-ou-url>
 
 L'import est idempotent : il identifie chaque aliment par son code Ciqual et
 met à jour les fiches existantes au lieu de les dupliquer. Le jeu de données
 n'est pas versionné dans le dépôt — voir le README pour le récupérer.
+
+Une URL est acceptée parce que l'import doit pouvoir tourner **dans le
+conteneur de production**, où il n'y a ni fichier déposé ni outil pour en
+transférer un. Le conteneur va chercher l'archive lui-même, l'extrait dans un
+dossier temporaire, et ne laisse rien derrière lui.
 """
 
 import tempfile
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from nutrition.models import Food, FoodNutrition, FoodSource, UnitType
 from nutrition.services.ciqual import (
-    CIQUAL_ATTRIBUTION,
-    CIQUAL_VERSION,
     CiqualFood,
+    attribution,
     extract_archive,
     read_foods,
+    read_version,
 )
+
+#: Taille au-delà de laquelle on refuse de télécharger. L'archive officielle
+#: pèse moins de deux mégaoctets ; cent est déjà large. La borne existe pour
+#: qu'une URL erronée échoue vite plutôt que de remplir le disque du conteneur.
+MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
 
 NUTRITION_FIELDS = [
     field.name for field in FoodNutrition._meta.fields if field.name not in {"id", "food"}
@@ -33,7 +45,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser) -> None:
         parser.add_argument(
             "source",
-            help="Dossier contenant les fichiers XML Ciqual, ou archive ZIP.",
+            help=(
+                "Dossier contenant les fichiers XML Ciqual, archive 7z ou ZIP, "
+                "ou URL https de l'archive publiée par l'Anses."
+            ),
         )
         parser.add_argument(
             "--sample",
@@ -43,16 +58,24 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options) -> None:
-        source = Path(options["source"]).expanduser()
-        if not source.exists():
-            raise CommandError(f"Chemin introuvable : {source}")
+        raw = options["source"]
 
         with tempfile.TemporaryDirectory() as workspace:
-            directory = extract_archive(source, Path(workspace)) if source.is_file() else source
+            root = Path(workspace)
+
+            if urlparse(raw).scheme in {"http", "https"}:
+                source = self._download(raw, root)
+            else:
+                source = Path(raw).expanduser()
+                if not source.exists():
+                    raise CommandError(f"Chemin introuvable : {source}")
+
+            directory = extract_archive(source, root / "extrait") if source.is_file() else source
 
             self.stdout.write(f"Lecture de {directory}…")
             try:
                 foods = read_foods(directory)
+                version = read_version(directory)
             except FileNotFoundError as exc:
                 raise CommandError(str(exc)) from exc
 
@@ -68,7 +91,39 @@ class Command(BaseCommand):
                 f"{unknown_values} teneur(s) inconnue(s) laissée(s) nulles."
             )
         )
-        self.stdout.write(f"Source : {CIQUAL_ATTRIBUTION} (version {CIQUAL_VERSION}).")
+        self.stdout.write(f"Source : {attribution(version)} (version {version}).")
+
+    def _download(self, url: str, destination: Path) -> Path:
+        """Rapatrie l'archive publiée, sans jamais rien laisser sur le disque.
+
+        `https` est exigé : l'archive sert de référentiel nutritionnel à toute
+        l'application, et un intermédiaire pourrait en modifier le contenu sur
+        une liaison en clair.
+        """
+        if urlparse(url).scheme != "https":
+            raise CommandError("Seules les URL https sont acceptées.")
+
+        target = destination / (Path(urlparse(url).path).name or "ciqual.7z")
+        self.stdout.write(f"Téléchargement de {url}…")
+
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
+                declared = response.headers.get("Content-Length")
+                if declared and int(declared) > MAX_DOWNLOAD_BYTES:
+                    raise CommandError(f"Archive trop volumineuse : {declared} octets.")
+
+                written = 0
+                with target.open("wb") as handle:
+                    while chunk := response.read(1024 * 256):
+                        written += len(chunk)
+                        if written > MAX_DOWNLOAD_BYTES:
+                            raise CommandError("Archive trop volumineuse.")
+                        handle.write(chunk)
+        except OSError as exc:
+            raise CommandError(f"Téléchargement impossible : {exc}") from exc
+
+        self.stdout.write(f"{written / 1024 / 1024:.1f} Mo téléchargés.")
+        return target
 
     @transaction.atomic
     def _write(self, foods: dict[str, CiqualFood]) -> tuple[int, int, int]:

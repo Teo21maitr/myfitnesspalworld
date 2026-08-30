@@ -9,13 +9,18 @@ from pathlib import Path
 
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
 
 from nutrition.models import Food, FoodNutrition, FoodSource
 from nutrition.services.ciqual import (
     BETA_CAROTENE_TO_RETINOL,
+    UNKNOWN_VERSION,
     CiqualFood,
+    attribution,
+    extract_archive,
     parse_teneur,
     read_foods,
+    read_version,
     sanitize_xml_line,
 )
 
@@ -179,3 +184,98 @@ def test_import_sur_un_chemin_inexistant():
 
     with pytest.raises(CommandError, match="introuvable"):
         call_command("import_ciqual", "/chemin/qui/nexiste/pas")
+
+
+# --- Millésime et attribution -------------------------------------------------
+#
+# La Licence Ouverte impose d'indiquer la source **et la version**. Une
+# constante figée dans le code affiche une attribution fausse dès que l'Anses
+# publie un nouveau jeu, sans que rien ne le signale — c'est arrivé au passage
+# de 2020 à 2025.
+
+
+class TestMillesime:
+    def test_le_millesime_est_lu_dans_le_nom_des_fichiers(self, tmp_path):
+        (tmp_path / "alim_2025_11_03.xml").touch()
+
+        assert read_version(tmp_path) == "2025-11-03"
+
+    def test_un_extrait_sans_date_complete_donne_l_annee(self):
+        """L'extrait versionné pour les tests s'appelle `alim_2020_extrait.xml`."""
+        assert read_version(CIQUAL_SAMPLE) == "2020"
+
+    def test_un_nom_sans_millesime_ne_l_invente_pas(self, tmp_path):
+        (tmp_path / "alim_extrait.xml").touch()
+
+        assert read_version(tmp_path) == UNKNOWN_VERSION
+
+    @pytest.mark.parametrize(
+        ("version", "attendu"),
+        [
+            ("2025-11-03", "Anses. 2025."),
+            ("2020", "Anses. 2020."),
+            (UNKNOWN_VERSION, "Anses. s.d."),
+        ],
+    )
+    def test_l_attribution_porte_l_annee_du_jeu(self, version, attendu):
+        assert attribution(version).startswith(attendu)
+
+
+# --- Formats d'archive --------------------------------------------------------
+
+
+class TestArchives:
+    """L'Anses publie en **7z**, pas en ZIP.
+
+    L'importateur n'acceptait que le ZIP : l'archive officielle devait être
+    décompressée à la main, avec un outil que l'image de production n'embarque
+    pas — donc l'import était impossible dans le conteneur.
+    """
+
+    def _archive_7z(self, tmp_path: Path) -> Path:
+        import py7zr
+
+        archive = tmp_path / "ciqual.7z"
+        with py7zr.SevenZipFile(archive, "w") as sevenzip:
+            for source in sorted(CIQUAL_SAMPLE.glob("*.xml")):
+                sevenzip.write(source, source.name)
+        return archive
+
+    def test_une_archive_7z_est_decompressee(self, tmp_path):
+        archive = self._archive_7z(tmp_path)
+
+        directory = extract_archive(archive, tmp_path / "extrait")
+
+        assert read_foods(directory)
+
+    def test_une_archive_zip_reste_acceptee(self, tmp_path):
+        import zipfile
+
+        archive = tmp_path / "ciqual.zip"
+        with zipfile.ZipFile(archive, "w") as zipped:
+            for source in sorted(CIQUAL_SAMPLE.glob("*.xml")):
+                zipped.write(source, source.name)
+
+        directory = extract_archive(archive, tmp_path / "extrait")
+
+        assert read_foods(directory)
+
+
+# --- Rapatriement par la commande ---------------------------------------------
+
+
+class TestTelechargement:
+    """L'import doit tourner dans le conteneur de production.
+
+    Il n'y a là ni fichier déposé ni outil pour en transférer un : la commande
+    va chercher l'archive elle-même.
+    """
+
+    def test_une_url_en_clair_est_refusee(self):
+        """Le jeu sert de référentiel à toute la base ; il ne se lit pas en clair."""
+        with pytest.raises(CommandError, match="https"):
+            call_command("import_ciqual", "http://ciqual.anses.fr/table.7z")
+
+    def test_un_chemin_inexistant_reste_nomme(self, tmp_path):
+        with pytest.raises(CommandError, match="introuvable"):
+            call_command("import_ciqual", str(tmp_path / "absent"))

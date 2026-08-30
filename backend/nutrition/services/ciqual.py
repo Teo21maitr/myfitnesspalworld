@@ -2,10 +2,13 @@
 
 Attribution à conserver dans l'application et la documentation :
 
-    Anses. 2020. Table de composition nutritionnelle des aliments Ciqual
+    Anses. <millésime>. Table de composition nutritionnelle des aliments Ciqual
 
 Les données sont réutilisables selon les conditions de la Licence Ouverte, à
-condition d'indiquer la source et la version.
+condition d'indiquer la source **et la version**. Le millésime est donc lu dans
+le jeu lui-même plutôt que figé ici : l'Anses en publie un nouveau
+régulièrement, et une constante oubliée ferait afficher une attribution fausse
+sans que rien ne le signale — le cas exact rencontré au passage de 2020 à 2025.
 
 Le jeu se compose de quatre fichiers XML encodés en `windows-1252`, dont un de
 55 Mo : la lecture se fait en flux, jamais en mémoire.
@@ -24,8 +27,30 @@ from xml.etree.ElementTree import Element
 # d'une source externe, même si elle est officielle.
 from defusedxml.ElementTree import iterparse
 
-CIQUAL_ATTRIBUTION = "Anses. 2020. Table de composition nutritionnelle des aliments Ciqual"
-CIQUAL_VERSION = "2020-07-07"
+#: Millésime lisible dans le nom des fichiers publiés — `alim_2025_11_03.xml`.
+#: L'extrait de test, lui, ne porte que l'année : les deux formes sont admises.
+_VERSION_PATTERN = re.compile(r"_(\d{4})(?:_(\d{2})_(\d{2}))?")
+
+#: Employé lorsque le millésime est illisible. Nommer l'ignorance vaut mieux que
+#: d'afficher une année inventée : c'est la règle des nutriments inconnus
+#: (spec 01 §8) appliquée à l'attribution.
+UNKNOWN_VERSION = "millésime inconnu"
+
+
+def read_version(directory: Path) -> str:
+    """Millésime du jeu, lu dans le nom de son fichier d'aliments."""
+    match = _VERSION_PATTERN.search(_find_file(directory, "alim_").name)
+    if match is None:
+        return UNKNOWN_VERSION
+    year, month, day = match.groups()
+    return f"{year}-{month}-{day}" if month else year
+
+
+def attribution(version: str) -> str:
+    """Mention d'attribution exigée par la Licence Ouverte."""
+    year = version.split("-")[0] if version != UNKNOWN_VERSION else "s.d."
+    return f"Anses. {year}. Table de composition nutritionnelle des aliments Ciqual"
+
 
 # Correspondance entre les codes de constituants Ciqual et les champs de
 # `FoodNutrition`. Les unités sont celles de la table : elles coïncident avec
@@ -224,8 +249,21 @@ def read_foods(directory: Path) -> dict[str, CiqualFood]:
 
 
 def extract_archive(archive: Path, destination: Path) -> Path:
-    """Décompresse une archive Ciqual et renvoie le dossier obtenu."""
+    """Décompresse une archive Ciqual et renvoie le dossier obtenu.
+
+    L'Anses publie le jeu XML en **7z**, pas en ZIP. Les deux sont acceptés :
+    refuser le format réellement publié obligerait à décompresser à la main
+    avec un outil que l'image de production n'embarque pas.
+    """
     destination.mkdir(parents=True, exist_ok=True)
+
+    if archive.suffix.lower() == ".7z":
+        import py7zr
+
+        with py7zr.SevenZipFile(archive) as sevenzip:
+            sevenzip.extractall(destination)
+        return destination
+
     with zipfile.ZipFile(archive) as zipped:
         zipped.extractall(destination)
     return destination
