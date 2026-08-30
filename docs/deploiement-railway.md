@@ -103,13 +103,30 @@ DEFAULT_FROM_EMAIL=MyFitnessPalworld <bonjour@ton-domaine.fr>
 OFF_CONTACT_EMAIL=<ton email>
 ```
 
-Trois remarques qui évitent des heures de recherche.
+Cinq remarques qui évitent des heures de recherche.
 
 **`${{Postgres.DATABASE_URL}}` est une référence**, pas une chaîne à recopier.
 Railway la résout au déploiement ; une valeur copiée deviendrait fausse à la
 première rotation d'identifiants.
 
+**Ces quatre références doivent être posées sur le service, jamais dans les
+*Shared Variables*.** Une variable partagée n'appartient à aucun service, donc
+Railway n'a aucun contexte pour y résoudre `${{Postgres.DATABASE_URL}}` : elle
+arrive **vide**. Django répond alors `database: error`, et Celery — qui a un
+broker par défaut — retombe sur RabbitMQ et cherche `127.0.0.1:5672`
+indéfiniment. Les autres variables, elles, peuvent parfaitement être partagées.
+
+**Une variable modifiée ne prend effet qu'au redémarrage du service.** Elle est
+injectée au démarrage du conteneur ; celui qui tourne déjà garde les anciennes.
+`railway restart --service <nom>` suffit, sans reconstruction.
+
 **Ne définis pas `PORT`.** Railway l'injecte, et l'image l'utilise.
+
+**N'ajoute pas `healthcheck.railway.app` à `DJANGO_ALLOWED_HOSTS`** : les
+réglages de production l'ajoutent eux-mêmes. La sonde de la plateforme n'appelle
+pas ton domaine public — elle tape le conteneur avec cet en-tête `Host`, et
+Django répondrait 400 avant toute vue. Laisser ce besoin à la variable
+condamnait le prochain qui la réécrit à rejouer la panne.
 
 **`FRONTEND_URL` et `BACKEND_URL` sont provisoirement invalides.** Elles ne
 peuvent pas l'être *vides* : le backend refuse de démarrer sans elles, parce
@@ -160,9 +177,14 @@ Pour chacun : **New** → **GitHub Repo** → `myfitnesspalworld`, puis **Settin
 | Branch | `main` | `main` |
 | Domaine public | **aucun** | **aucun** |
 
-Copie les **mêmes variables** qu'à l'étape 3 dans chacun des deux services. Le
-plus simple est le *Shared Variables* du projet : définis-les une fois au niveau
-projet, et référence-les depuis les trois services.
+Chacun a besoin des **mêmes variables** qu'à l'étape 3. Les réglages ordinaires
+gagnent à passer par les *Shared Variables* du projet — définis une fois, puis
+référencés depuis les trois services ; Railway ne les injecte pas tout seul.
+
+Les quatre chaînes de connexion, elles, **ne peuvent pas** y aller, pour la
+raison donnée à l'étape 3. `.railway/railway.ts` les déclare donc service par
+service, et l'étape suivante les applique en même temps que les commandes de
+démarrage.
 
 Ne leur donne **aucun domaine public** : ils n'écoutent rien.
 
@@ -183,8 +205,15 @@ railway link
 railway config plan
 ```
 
-Il doit annoncer trois modifications : la commande de démarrage de chaque
-service, plus le healthcheck et le `migrate` du backend. Puis :
+**Lis la première ligne, celle qui commence par `Plan:`, avant d'appliquer.**
+Elle compte les créations, les modifications et les **suppressions**. Un service
+créé dans l'interface mais absent du fichier y apparaît en `Delete service` : le
+fichier fait autorité, et `apply` le supprimerait. Dans ce cas, déclare-le dans
+`.railway/railway.ts` avant de continuer.
+
+Le plan doit annoncer les commandes de démarrage du worker et du beat, le
+healthcheck et le `migrate` du backend, ses quatre variables de connexion — et
+**zéro suppression**. Puis :
 
 ```bash
 railway config apply
@@ -197,8 +226,29 @@ railway config apply
 > racine partagée : chaque service y a sa commande, même quand trois pointent
 > vers le même dossier.
 >
-> Les variables restent en `preserve()` : elles vivent dans Railway, et aucun
-> secret n'entre dans le dépôt.
+> Les secrets restent en `preserve()` ou sous forme de références : ils vivent
+> dans Railway, et aucun n'entre dans le dépôt.
+
+> **Ne déclare jamais de `start` qui utilise `$PORT`.** Railway exécute la
+> commande de démarrage **sans shell** : `--bind 0.0.0.0:$PORT` passe les cinq
+> caractères `$PORT` à gunicorn, qui refuse de démarrer. Le conteneur redémarre
+> en boucle, le healthcheck échoue, et rien dans le message ne nomme la cause.
+> Le backend n'en déclare donc aucune : le `CMD` de son image passe par `sh -c`
+> et développe `${PORT:-8000}`. Le worker et le beat, eux, n'ont besoin
+> d'aucune expansion.
+
+> **`railway config apply` ne redémarre pas les services.** Il écrit la
+> configuration ; c'est le déploiement suivant qui l'emporte dans le conteneur.
+> Vérifie donc qu'un déploiement a bien réussi **après** l'`apply` :
+>
+> ```bash
+> railway deployment list --service Backend
+> ```
+>
+> Un `FAILED` en tête, avec un `SUCCESS` plus ancien en dessous, veut dire que
+> le conteneur qui répond est l'ancien — et qu'il ignore tout ce que tu viens
+> d'appliquer. C'est l'erreur la plus trompeuse de cette page : l'application
+> répond, donc tout semble déployé.
 
 > **Vérification.** Les journaux du worker affichent `celery@... ready.` et la
 > liste des tâches. Ceux du beat affichent son planificateur, avec
@@ -382,7 +432,14 @@ La liste est embarquée dans les navigateurs ; en sortir prend des mois.
 | Symptôme | Cause la plus probable |
 | --- | --- |
 | Le conteneur s'arrête au démarrage | Une variable obligatoire manque. Le message la nomme et dit ce qu'elle évite |
+| `'$PORT' is not a valid port number` | Une commande de démarrage déclarée dans `.railway/railway.ts` utilise `$PORT`. Railway l'exécute sans shell : supprime-la, le `CMD` de l'image s'en charge |
+| Le healthcheck échoue en **HTTP 400** | `healthcheck.railway.app` manque à `ALLOWED_HOSTS`. Les réglages de production l'ajoutent : si tu vois ce code, c'est que l'image déployée est antérieure au correctif |
+| Le healthcheck échoue en **301** | La redirection HTTPS attrape la sonde, qui arrive en clair. `SECURE_REDIRECT_EXEMPT` couvre `/health/` |
 | `/health/` répond 503 | `DATABASE_URL` ou `REDIS_URL` mal référencée. Le corps de la réponse dit laquelle |
+| `/health/` reste 503 après correction des variables | Le dernier déploiement a **échoué** et le conteneur qui répond est l'ancien. `railway deployment list --service Backend` : cherche un `SUCCESS` postérieur à ta correction |
+| Une variable corrigée reste sans effet | Le conteneur en cours garde celles de son démarrage. `railway restart --service <nom>` |
+| Une référence `${{Service.VAR}}` arrive vide | Elle est posée dans les *Shared Variables*, qui n'appartiennent à aucun service et ne peuvent donc pas la résoudre. Pose-la sur le service |
+| Celery cherche `amqp://…@127.0.0.1:5672` | `CELERY_BROKER_URL` est vide : c'est le broker par défaut de Celery. Voir la ligne ci-dessus |
 | `/health/` vert mais l'admin en 500 | Les fichiers statiques manquent. L'image les construit : vérifie que le build a bien utilisé l'étage `production` |
 | Erreur CORS dans le navigateur | `CORS_ALLOWED_ORIGINS` ne correspond pas exactement à l'origine du frontend, protocole compris |
 | 403 CSRF à la connexion | `CSRF_TRUSTED_ORIGINS` incomplet, ou cookies bloqués : vérifie `AUTH_COOKIE_SAMESITE=None` sur deux domaines distincts |
