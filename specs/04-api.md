@@ -629,10 +629,43 @@ POST   /progress/photos/
 GET    /progress/photos/{id}/
 PATCH  /progress/photos/{id}/
 DELETE /progress/photos/{id}/
+DELETE /progress/photos/{id}/files/{photo_id}/
 ```
 
-Le fichier n'est pas modifié : supprimer/réuploader pour remplacer.
-Les métadonnées peuvent être patchées.
+`{id}` désigne un **groupe** : la date, et jusqu'à quatre photos. C'est lui qui
+porte la note et la pesée du jour, tandis qu'une photo ne porte que son fichier.
+
+Le fichier n'est pas modifié : supprimer/réuploader pour remplacer. Seules les
+métadonnées se patchent. La dernière route découle de cette phrase — sans elle,
+rien ne permettait de retirer **une** photo d'une date.
+
+`POST` reçoit du multipart : `date`, `notes` et `weight_kg_snapshot`
+facultatifs, les fichiers sous `photos` et leurs angles sous `photo_types`,
+dans le même ordre. Une date déjà photographiée est **complétée**, pas
+remplacée : on revient ajouter le profil après la face. Un angle absent vaut
+`other` plutôt que de faire échouer l'envoi — la photo compte plus que son
+étiquette, et l'étiquette se corrige.
+
+Chaque photo rendue porte une **URL signée de courte durée**, jamais sa clé de
+stockage. La clé est non devinable, donc de fait un secret d'accès : la publier
+offrirait une cible à qui l'obtiendrait autrement (spec 05 §10).
+
+L'image est **retraitée côté serveur** avant d'être déposée : redimensionnée et
+réencodée en JPEG, **métadonnées EXIF supprimées**. Le client compresse déjà,
+mais il n'est jamais la source de vérité — et l'EXIF d'un cliché de téléphone
+porte les coordonnées du lieu où il a été pris.
+
+`DELETE` emporte les objets du stockage, pas seulement les lignes : la spec 01
+§20 promet une suppression définitive. Il en va de même à la suppression du
+compte (spec 05 §11).
+
+Sans stockage objet configuré, `POST` répond **503** `storage_unavailable` : la
+fonctionnalité n'est pas branchée, et le reste de l'application n'en est pas
+affecté.
+
+Les photos ne sont partageables **sous aucune forme** : aucun type ne les
+désigne dans `/shares/`, et un partage `progress` ouvre les courbes et les
+pesées d'un ami, jamais ses photos (spec 01 §20).
 
 ## 16. Dashboard
 

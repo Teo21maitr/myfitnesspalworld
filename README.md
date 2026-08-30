@@ -28,6 +28,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Journal alimentaire](#journal-alimentaire)
 - [Accueil et copie](#accueil-et-copie)
 - [Progression](#progression)
+- [Photos de progression](#photos-de-progression)
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
 - [Comptes de démonstration](#comptes-de-démonstration)
@@ -592,6 +593,74 @@ ressemblerait à une progression régulière. Aucun point n'est fabriqué pour l
 
 Les photos de progression (spec 01 §20) demandent le stockage objet, non configuré : elles ne
 figurent pas encore sur cet écran.
+
+## Photos de progression
+
+Plusieurs photos par date, sous quatre angles — face, profil, dos, autre — avec une note et la
+pesée du jour (spec 01 §20). C'est la seule fonctionnalité du projet qui écrit des fichiers, et
+la seule qui ne se partage sous aucune forme.
+
+En local, `docker compose up` démarre **MinIO** et crée le seau. Sans réglage `S3_*`, l'envoi
+répond 503 : la fonctionnalité n'est pas branchée, et rien d'autre n'en souffre.
+
+### Le fichier survit à la ligne
+
+C'est le seul endroit de cette fonctionnalité où une erreur ne se voit pas. Supprimer une photo,
+c'est supprimer une ligne : c'est facile, ça paraît complet, l'écran se met correctement à jour.
+Pendant ce temps l'objet reste dans le seau, pour toujours, et la « suppression définitive » que
+promet la spec est un mensonge que rien ne signale.
+
+Trois chemins y mènent, et il faut les tenir tous les trois :
+
+- **une photo** et **un groupe** passent par
+  [`progress/services/photos.py`](backend/progress/services/photos.py) ;
+- **la suppression du compte** est le plus facile à oublier. `user.delete()` a l'air de tout
+  emporter — la cascade fait tomber les lignes — mais rien ne touche au stockage.
+  [`AccountView.delete`](backend/accounts/views.py) relève donc les clés **avant** la cascade :
+  après elle, plus rien ne dit quels objets appartenaient à ce compte.
+
+L'ordre est contre-intuitif : on supprime **les lignes d'abord, les objets ensuite**, hors
+transaction et seulement après son succès. Retirer un objet est irréversible ; le faire depuis une
+transaction qui peut encore échouer laisserait une ligne pointant vers un fichier disparu — l'erreur
+symétrique, tout aussi silencieuse.
+
+Le contrôle qui tranche, sur le vrai MinIO : déposer trois photos, supprimer le compte, et compter
+les objets restants. **Zéro.**
+
+### Une clé ne se devine pas, et ne dit rien
+
+`storage_key` est un `uuid4` derrière un préfixe. Ni l'identifiant du propriétaire, ni la date :
+un chemin qui nomme son propriétaire le trahit sans même qu'on ouvre le fichier (spec 05 §10).
+
+Elle ne sort donc jamais — ni dans une réponse d'API, ni dans l'admin, ni dans un journal. Étant
+non devinable, elle **est** le secret d'accès.
+
+### Une URL signée survit à sa révocation
+
+Le seau est privé : une URL signée est le seul chemin vers l'objet. Mais une fois émise, elle vaut
+jusqu'à son expiration — **même si la photo est supprimée entre-temps**. La seule façon de borner
+cet accès est de le faire expirer vite : cinq minutes par défaut (`PROGRESS_PHOTO_URL_TTL`), et une
+signature SigV4 explicite, sans quoi boto3 retombe selon le point d'accès sur SigV2, dépréciée.
+
+### L'EXIF part côté serveur
+
+Le client compresse déjà avant d'envoyer, ce qui retire l'EXIF au passage. Le serveur le refait
+quand même : le frontend n'est jamais la source de vérité, et un autre client enverrait l'original.
+
+Ce n'est pas une précaution abstraite. Un cliché de téléphone porte les coordonnées GPS du lieu où
+il a été pris, et une photo de progression est prise chez soi. La recopier inscrirait une adresse
+dans un fichier, au sein d'une fonctionnalité dont toute la règle est que rien ne sort.
+[`prepare`](backend/progress/services/photos.py) reconstruit l'image à partir de ses seuls pixels :
+ni EXIF, ni profil colorimétrique, ni commentaire ne traverse.
+
+### Jamais partageables
+
+Aucun type ne les désigne dans `/shares/`, et il ne doit jamais y en avoir. Un partage `progress`
+ouvre les courbes et les pesées d'un ami — pas ses photos. Rien ne le vérifiait ; un test le fait
+maintenant, parce qu'une décision qu'aucun test ne tient finit par se perdre.
+
+L'écran le dit aussi, en toutes lettres : l'utilisateur n'a pas à deviner ce que l'application fait
+de ses images.
 
 ## Recettes et repas enregistrés
 
@@ -1224,8 +1293,9 @@ fichiers d'environnement de sa propre racine.
 Renseignez `OFF_CONTACT_EMAIL` : Open Food Facts exige un User-Agent identifiant l'application
 et un contact, faute de quoi les appels risquent d'être pris pour ceux d'un robot.
 
-`AI_MEAL_SCAN_MODEL` est le seul modèle utilisé à ce stade ; les trois autres attendent leurs
-fonctionnalités. Les variables S3 sont déclarées mais pas encore employées.
+`AI_MEAL_SCAN_MODEL` et `AI_LABEL_SCAN_MODEL` sont les modèles utilisés à ce stade ; les autres
+attendent leurs fonctionnalités. Les variables `S3_*` servent aux photos de progression ; laissées
+vides, l'envoi d'une photo répond 503 et le reste de l'application continue.
 
 ## Structure du dépôt
 
