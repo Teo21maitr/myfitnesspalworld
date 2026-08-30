@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ChartNoAxesColumn,
   ChefHat,
+  CircleQuestionMark,
   FileText,
   Home,
   Images,
@@ -101,6 +102,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Compte',
     items: [
       { to: '/notifications', label: 'Notifications', Icon: Bell },
+      { to: '/guide', label: 'Guide', Icon: CircleQuestionMark },
       { to: '/compte', label: 'Mon compte', Icon: UserRound, short: 'Compte' },
     ],
   },

@@ -2,6 +2,7 @@ import {
   Apple,
   BookOpen,
   ChefHat,
+  CircleQuestionMark,
   ScanBarcode,
   Target,
   TrendingUp,
@@ -13,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { today } from '@/features/diary/dates'
+import { useGuideUnseen } from '@/features/guide/use-guide-seen'
 import { useDashboard } from '@/features/diary/use-diary'
 import { NutrientValue } from '@/features/foods/nutrient-value'
 import type { Dashboard } from '@/lib/api/types'
@@ -190,9 +192,39 @@ function MealsCard({ day }: { day: Dashboard }) {
   )
 }
 
+/**
+ * Invitation à lire le guide, tant qu'il ne l'a pas été.
+ *
+ * Sur l'accueil parce que c'est là qu'on arrive, et seulement la première fois
+ * parce qu'un conseil qu'on a suivi devient un encombrement.
+ */
+function GuideInvitation() {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle as="h2" className="text-base">
+            Première visite ?
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Le guide explique chaque écran en quelques lignes.
+          </CardDescription>
+        </div>
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/guide">
+            <CircleQuestionMark aria-hidden="true" className="size-4" />
+            Lire le guide
+          </Link>
+        </Button>
+      </CardHeader>
+    </Card>
+  )
+}
+
 export function HomePage() {
   const date = today()
   const { data: day, error, isPending } = useDashboard(date)
+  const guideUnseen = useGuideUnseen()
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
@@ -206,6 +238,8 @@ export function HomePage() {
           })}
         </p>
       </div>
+
+      {guideUnseen && <GuideInvitation />}
 
       {isPending && (
         <div aria-busy="true" className="flex flex-col gap-3">

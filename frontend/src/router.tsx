@@ -29,6 +29,7 @@ import { ResetPasswordPage } from '@/pages/auth/reset-password-page'
 import { HomePage } from '@/pages/home-page'
 import { JournalPage } from '@/pages/journal-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { GuidePage } from '@/pages/guide/guide-page'
 import { NotificationsPage } from '@/pages/notifications/notifications-page'
 import { OnboardingPage } from '@/pages/onboarding-page'
 import { PhotosPage } from '@/pages/progress/photos-page'
@@ -91,6 +92,7 @@ export const routes = [
     ),
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'guide', element: <GuidePage /> },
       { path: 'journal', element: <JournalPage /> },
       { path: 'aliments', element: <FoodSearchPage /> },
       { path: 'aliments/:id', element: <FoodDetailPage /> },
