@@ -362,6 +362,44 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin/login/)
           test "$code" = "200" || { docker logs backend; echo "admin=$code"; exit 1; }
 
+      # Reproduit la sonde de la plateforme **telle qu'elle arrive vraiment** :
+      # en clair, sur le réseau interne, avec un `Host` qui n'est pas le domaine
+      # public. Deux réglages de `production.py` la rendent possible, et aucun
+      # des appels ci-dessus ne les exerce — le conteneur précédent a la
+      # redirection HTTPS désactivée et répond sur son propre hôte.
+      #
+      # C'est la panne qui a coûté deux déploiements à l'étape 19, et la plus
+      # trompeuse : healthcheck en échec, la plateforme garde l'ancien
+      # conteneur, l'application répond — donc tout paraît déployé.
+      - name: La sonde de la plateforme aboutit
+        run: |
+          docker run -d --name sonde --network host \
+            -e PORT=8002 \
+            -e DJANGO_SECRET_KEY -e CORS_ALLOWED_ORIGINS -e CSRF_TRUSTED_ORIGINS \
+            -e FRONTEND_URL -e BACKEND_URL -e DEFAULT_FROM_EMAIL \
+            -e EMAIL_BACKEND -e AI_PROVIDER \
+            -e DJANGO_ALLOWED_HOSTS=api.example.com \
+            -e SECURE_SSL_REDIRECT=True \
+            -e DATABASE_URL=postgres://mfp:mfp@localhost:5432/mfp \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            mfp-backend:ci
+
+          for attempt in $(seq 1 20); do
+            curl -s -o /dev/null -H 'Host: healthcheck.railway.app' \
+              http://localhost:8002/health/ && break
+            sleep 2
+          done
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'Host: healthcheck.railway.app' http://localhost:8002/health/)
+          docker rm -f sonde > /dev/null
+          case "$code" in
+            200) ;;
+            400) echo "healthcheck.railway.app absent d'ALLOWED_HOSTS." >&2; exit 1 ;;
+            30*) echo "La sonde est redirigée vers HTTPS (code $code)." >&2; exit 1 ;;
+            *)   echo "Sonde inattendue : $code" >&2; exit 1 ;;
+          esac
+
       - name: L'image de production ne contient pas les outils de test
         run: |
           if docker run --rm mfp-backend:ci pip show pytest > /dev/null 2>&1; then
