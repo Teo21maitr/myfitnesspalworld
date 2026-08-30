@@ -1,0 +1,36 @@
+server {
+    listen ${PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Le service worker et le manifeste ne se mettent pas en cache : sinon une
+    # version reste servie après un déploiement, et l'application ne se met
+    # jamais à jour.
+    location ~* ^/(sw\.js|registerSW\.js|manifest\.webmanifest)$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        expires -1;
+    }
+
+    # Les fichiers construits portent une empreinte dans leur nom : ils peuvent
+    # être gardés longtemps sans risque.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Repli SPA. Sans lui, un rechargement sur /journal renverrait un 404 :
+    # le routage vit dans le navigateur, pas sur le serveur.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # L'application n'est jamais destinée à être encadrée.
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "same-origin" always;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+}

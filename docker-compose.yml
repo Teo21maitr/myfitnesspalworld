@@ -106,7 +106,9 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py runserver 0.0.0.0:8000"
@@ -129,7 +131,9 @@ services:
         condition: service_healthy
 
   worker:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     command: celery -A config worker -l info
     env_file:
       - .env
@@ -144,7 +148,9 @@ services:
         condition: service_healthy
 
   beat:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     # Ordonnanceur des rappels, du nettoyage des fichiers temporaires et du
     # rafraîchissement des caches externes (spec 09 §10). Aucune tâche
     # planifiée n'est encore définie.
@@ -160,7 +166,9 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     command: npm run dev -- --host 0.0.0.0
     environment:
       # Le navigateur de l'hôte appelle l'API par le port publié.
