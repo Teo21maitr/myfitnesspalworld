@@ -330,11 +330,11 @@ class WeightSummarySerializer(serializers.Serializer):
 
 
 class DashboardSerializer(DiaryDaySerializer):
-    """`GET /dashboard/` — la journée, plus le poids (spec 04 §16).
+    """`GET /dashboard/` — la journée, le poids et les non-lues (spec 04 §16).
 
-    Le bloc « notifications importantes » de la spec est omis : le modèle
-    `Notification` n'existe pas encore. Mieux vaut son absence qu'un champ
-    simulé.
+    Le compteur voyage ici plutôt que dans une requête à part : l'accueil est
+    déjà chargé au démarrage, et un entier de plus ne coûte rien.
     """
 
     weight = WeightSummarySerializer(read_only=True, allow_null=True)
+    unread_notifications = serializers.IntegerField(read_only=True)

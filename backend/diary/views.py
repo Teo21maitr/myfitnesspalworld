@@ -34,6 +34,7 @@ from diary.services import copy as copy_service
 from diary.services import day as day_service
 from diary.services import entries as entries_service
 from diary.services import meal_types as meal_types_service
+from notifications.services import dispatch as notifications_dispatch
 from nutrition.models import Food
 from nutrition.services.quantities import resolve_factor
 from progress.services.summary import weight_summary
@@ -327,6 +328,7 @@ class DashboardView(APIView):
         day = parse_date(request.query_params.get("date"))
         payload = day_service.build_day(request.user, day)
         payload["weight"] = weight_summary(request.user)
+        payload["unread_notifications"] = notifications_dispatch.unread_count(request.user)
 
         return Response(DashboardSerializer(payload).data)
 
