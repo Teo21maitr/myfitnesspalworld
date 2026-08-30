@@ -119,3 +119,39 @@ export function cleanupOffProducts(): void {
     stdio: 'pipe',
   })
 }
+
+/**
+ * Déclenche le balayage des rappels, comme le fait Celery beat.
+ *
+ * On passe par le service réel plutôt que par un raccourci de test : c'est le
+ * même chemin qu'en production, contrainte d'unicité comprise.
+ */
+export function runDueReminders(): void {
+  execFileSync(
+    PYTHON,
+    ['manage.py', 'shell', '-c', 'from notifications.services import reminders; reminders.run()'],
+    { cwd: '../backend', env: backendEnv(), stdio: 'pipe' },
+  )
+}
+
+/** Recule l'heure d'un rappel, pour qu'il devienne dû sans attendre. */
+export function makeReminderDue(username: string): void {
+  // Chaque entrée doit être une instruction complète : elles sont jointes par
+  // `; `, et une expression coupée en trois deviendrait une erreur de syntaxe.
+  const script = [
+    'import os',
+    'from datetime import timedelta',
+    'from django.utils import timezone',
+    'from accounts.models import normalize_username',
+    'from notifications.models import Reminder',
+    'moment = timezone.localtime() - timedelta(minutes=5)',
+    'normalized = normalize_username(os.environ["E2E_USERNAME"])',
+    'Reminder.objects.filter(user__normalized_username=normalized).update(time=moment.time())',
+  ].join('; ')
+
+  execFileSync(PYTHON, ['manage.py', 'shell', '-c', script], {
+    cwd: '../backend',
+    env: backendEnv({ E2E_USERNAME: username }),
+    stdio: 'pipe',
+  })
+}
