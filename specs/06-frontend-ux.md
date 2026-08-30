@@ -30,6 +30,9 @@ Menu `+` :
 
 Recettes / Planner / Courses : accessibles depuis accueil ou menu secondaire.
 
+> Le logo de l'en-tête ramène à l'accueil. C'est ce qu'un logo fait partout
+> ailleurs : l'attendre sans l'obtenir se remarque.
+
 ## 3. Navigation desktop
 
 Sidebar :
@@ -90,6 +93,21 @@ Sidebar :
 - Notifications
 - Confidentialité
 - Paramètres
+- Guide
+
+Le **guide** décrit chaque écran en une ou deux phrases et s'ouvre depuis le
+menu, section « Compte ». Il se construit à partir de la liste de navigation
+plutôt que d'une copie : une destination ajoutée au menu y paraît d'office, et
+un test échoue si sa description manque — sinon la fonctionnalité suivante
+sortirait muette, un nom et une icône sans rien dessous.
+
+Il emprunte les icônes et les libellés de l'application, ce qui donne le repère
+visuel qu'apporteraient des captures d'écran sans leur défaut : une capture
+vieillit à la première retouche, et personne ne s'en aperçoit.
+
+L'accueil y invite tant qu'il n'a pas été ouvert. Le drapeau vit dans le
+navigateur : c'est un confort d'affichage, pas une donnée du compte, et le
+revoir sur un nouvel appareil est souhaitable.
 
 ## 5. Dashboard
 
