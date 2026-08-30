@@ -19,9 +19,10 @@ fi
 
 case "${BACKEND_ORIGIN}" in
     */)
-        echo "BACKEND_ORIGIN ne doit pas se terminer par « / » : nginx" >&2
-        echo "retirerait alors /api/ du chemin transmis, et le backend" >&2
-        echo "répondrait 404 à chaque appel." >&2
+        echo "BACKEND_ORIGIN porte une barre finale, qu'elle ne doit pas" >&2
+        echo "avoir : nginx retirerait alors /api/ du chemin transmis, et le" >&2
+        echo "backend répondrait 404 à chaque appel." >&2
+        echo "Attendu : ${BACKEND_ORIGIN%/}" >&2
         exit 1
         ;;
 esac
