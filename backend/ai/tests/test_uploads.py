@@ -17,15 +17,15 @@ def upload(content: bytes, content_type: str = "image/jpeg", name: str = "repas.
 
 class TestAcceptedFormats:
     @pytest.mark.parametrize(
-        ("content", "content_type"),
+        ("content", "content_type", "name"),
         [
-            pytest.param(JPEG_BYTES, "image/jpeg", id="jpeg"),
-            pytest.param(PNG_BYTES, "image/png", id="png"),
-            pytest.param(WEBP_BYTES, "image/webp", id="webp"),
+            pytest.param(JPEG_BYTES, "image/jpeg", "repas.jpg", id="jpeg"),
+            pytest.param(PNG_BYTES, "image/png", "repas.png", id="png"),
+            pytest.param(WEBP_BYTES, "image/webp", "repas.webp", id="webp"),
         ],
     )
-    def test_une_image_valide_est_acceptee(self, content, content_type):
-        images = read_uploads([upload(content, content_type)])
+    def test_une_image_valide_est_acceptee(self, content, content_type, name):
+        images = read_uploads([upload(content, content_type, name)])
 
         assert len(images) == 1
         assert images[0].media_type == content_type
@@ -65,3 +65,15 @@ class TestRefusals:
 
         with pytest.raises(ValidationError):
             read_uploads([upload(oversized)])
+
+
+def test_une_extension_qui_contredit_le_type_est_refusee():
+    """Un renommage trahit une intention, et rien de bon ne commence par là."""
+    with pytest.raises(ValidationError):
+        read_uploads([upload(PNG_BYTES, "image/png", "photo.jpg")])
+
+
+def test_une_extension_en_majuscules_est_acceptee():
+    images = read_uploads([upload(JPEG_BYTES, "image/jpeg", "PHOTO.JPG")])
+
+    assert len(images) == 1
