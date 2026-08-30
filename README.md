@@ -11,7 +11,7 @@ spécifications qui fait foi pour toutes les règles métier.
 > table Ciqual, scanner un code-barres, tenir son journal alimentaire, copier une journée vers
 > d'autres dates, suivre son poids et ses mensurations, composer des recettes et des repas
 > enregistrés, se lier d'amitié, partager, générer sa liste de courses, et faire reconnaître un
-> repas sur une photo. Le planner, les rapports, l'analyse et la saisie vocale restent à faire.
+> repas sur une photo. Le planner, les rapports, l'analyse et la saisie vocale restent encore à faire.
 
 ## Sommaire
 
