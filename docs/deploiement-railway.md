@@ -62,9 +62,10 @@ Sur le service créé à l'étape 1, onglet **Settings** :
 | Root Directory | `/backend` |
 | Branch | `main` |
 
-Railway lit alors `backend/railway.json`, qui déclare le constructeur Docker, la
-commande de démarrage, le healthcheck `/health/` et le `migrate` de
-pré-déploiement. Tu n'as rien à saisir de tout cela.
+Les commandes de démarrage, le healthcheck et le `migrate` de pré-déploiement
+sont déclarés dans `.railway/railway.ts` — tu les appliqueras à l'étape 5, une
+fois les trois services backend créés. En attendant, laisse ces champs vides
+dans l'interface.
 
 ---
 
@@ -156,23 +157,8 @@ Pour chacun : **New** → **GitHub Repo** → `myfitnesspalworld`, puis **Settin
 | | `celery-worker` | `celery-beat` |
 | --- | --- | --- |
 | Root Directory | `/backend` | `/backend` |
-| Config-as-code path | `railway.worker.json` | `railway.beat.json` |
 | Branch | `main` | `main` |
 | Domaine public | **aucun** | **aucun** |
-
-Ces fichiers déclarent les commandes ; tu n'as pas à les saisir :
-
-```bash
-celery -A config worker -l info
-celery -A config beat -l info --schedule /tmp/celerybeat-schedule
-```
-
-> **Pourquoi trois fichiers de configuration.** Railway lit `railway.json` à la
-> racine du service. Les trois services backend partagent `/backend` : sans
-> fichiers distincts, worker et beat hériteraient de la commande gunicorn **et**
-> du healthcheck `/health/` — qu'un worker ne peut pas satisfaire, n'écoutant sur
-> aucun port. Le champ *Config-as-code* de chaque service pointe donc vers le
-> sien.
 
 Copie les **mêmes variables** qu'à l'étape 3 dans chacun des deux services. Le
 plus simple est le *Shared Variables* du projet : définis-les une fois au niveau
@@ -180,9 +166,46 @@ projet, et référence-les depuis les trois services.
 
 Ne leur donne **aucun domaine public** : ils n'écoutent rien.
 
+### Puis appliquer les commandes de démarrage
+
+Les trois services backend partagent la racine `/backend`. Sans instruction
+contraire, **les trois lanceraient gunicorn** : c'est la commande de l'image. Un
+worker qui lance un serveur web ne traite aucune tâche, et rien ne le signale.
+
+Ces commandes vivent dans `.railway/railway.ts`, à la racine du dépôt. Depuis
+ton poste :
+
+```bash
+railway link
+```
+
+```bash
+railway config plan
+```
+
+Il doit annoncer trois modifications : la commande de démarrage de chaque
+service, plus le healthcheck et le `migrate` du backend. Puis :
+
+```bash
+railway config apply
+```
+
+> **Pourquoi un fichier et non trois.** Railway a déprécié `railway.json`, qui
+> se plaçait à la racine de chaque service — et refuse désormais de déployer un
+> projet qui en contient. Le format actuel décrit tous les services dans un
+> **unique** `.railway/railway.ts`, ce qui règle au passage le problème de la
+> racine partagée : chaque service y a sa commande, même quand trois pointent
+> vers le même dossier.
+>
+> Les variables restent en `preserve()` : elles vivent dans Railway, et aucun
+> secret n'entre dans le dépôt.
+
 > **Vérification.** Les journaux du worker affichent `celery@... ready.` et la
 > liste des tâches. Ceux du beat affichent son planificateur, avec
 > `send-due-reminders` et `purge-expired-async-tasks`.
+>
+> S'ils affichent des lignes de gunicorn, la configuration n'a pas été
+> appliquée : reprends `railway config plan`.
 
 ---
 

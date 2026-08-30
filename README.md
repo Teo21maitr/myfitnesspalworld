@@ -1347,16 +1347,21 @@ jamais.
 
 | Service | Racine | Commande de démarrage |
 | --- | --- | --- |
-| `backend` | `/backend` | celle de `railway.json` (gunicorn sur `$PORT`) |
-| `celery-worker` | `/backend` | `railway.worker.json` |
-| `celery-beat` | `/backend` | `railway.beat.json` |
+| `backend` | `/backend` | gunicorn sur `$PORT`, plus `migrate` en pré-déploiement |
+| `celery-worker` | `/backend` | `celery -A config worker` |
+| `celery-beat` | `/backend` | `celery -A config beat` |
 | `frontend` | `/frontend` | celle de l'image (nginx sur `$PORT`) |
 
-`backend/railway.json` déclare le constructeur, le healthcheck `/health/` et le pré-déploiement
-`migrate`. Les deux services Celery partagent la racine `/backend` mais **pas** ce fichier : ils
-pointent, par le réglage *Config-as-code* de Railway, vers `railway.worker.json` et
-`railway.beat.json`. Sans cela ils hériteraient de la commande gunicorn et d'un healthcheck HTTP
-qu'un worker ne peut pas satisfaire, n'écoutant sur aucun port.
+Tout est déclaré dans **[`.railway/railway.ts`](.railway/railway.ts)** — un fichier unique pour le
+projet entier, appliqué par `railway config apply`. Railway a déprécié les `railway.json` par
+service et refuse désormais de déployer un dépôt qui en contient.
+
+Ce format unique règle le problème de la racine partagée : les trois services backend pointent vers
+`/backend`, mais chacun y a sa propre commande. Sans cela, worker et beat lanceraient gunicorn — un
+worker qui sert des pages HTTP ne traite aucune tâche, et rien ne le signale.
+
+Les variables y restent en `preserve()` : elles vivent dans Railway, et aucun secret n'entre dans le
+dépôt.
 
 Seuls `backend` et `frontend` reçoivent un domaine public.
 

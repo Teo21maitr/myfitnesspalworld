@@ -442,11 +442,12 @@ Les migrations destructives rendent les rollbacks plus dangereux : les éviter.
 Ajouté à l'étape 19, pour que le déploiement ne repose pas seulement sur des réglages saisis dans
 une interface :
 
-- `backend/railway.json`, `backend/railway.worker.json`, `backend/railway.beat.json` et
-  `frontend/railway.json` — constructeur, healthcheck `/health/` et pré-déploiement `migrate`. Les
-  trois services backend partagent la racine `/backend` : un fichier unique ferait hériter au worker
-  et au beat la commande gunicorn **et** un healthcheck HTTP qu'ils ne peuvent pas satisfaire. Chacun
-  pointe donc vers le sien par le réglage *Config-as-code*.
+- `.railway/railway.ts` — le projet entier dans un fichier : les quatre services, leurs commandes,
+  le healthcheck `/health/` et le pré-déploiement `migrate`. Railway a déprécié les `railway.json`
+  par service, que cette spec décrivait implicitement, et refuse de déployer un dépôt qui en
+  contient. Le format unique règle au passage la racine partagée : les trois services backend
+  pointent vers `/backend` et gardent chacun sa commande. Les variables y sont en `preserve()` :
+  elles vivent dans Railway.
 - `docs/deploiement-railway.md` — la marche à suivre, étape par étape, avec une vérification à
   chaque palier.
 - `backend/Dockerfile` en trois étages. `production` n'installe **pas** `requirements-dev.txt`, pose

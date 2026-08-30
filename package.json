@@ -1,0 +1,8 @@
+{
+  "name": "myfitnesspalworld-iac",
+  "private": true,
+  "description": "SDK Railway, requis par .railway/railway.ts. Aucun code applicatif ici.",
+  "dependencies": {
+    "railway": "3.11.0"
+  }
+}
