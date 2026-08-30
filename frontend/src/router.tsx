@@ -29,6 +29,7 @@ import { ResetPasswordPage } from '@/pages/auth/reset-password-page'
 import { HomePage } from '@/pages/home-page'
 import { JournalPage } from '@/pages/journal-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { NotificationsPage } from '@/pages/notifications/notifications-page'
 import { OnboardingPage } from '@/pages/onboarding-page'
 import { PhotosPage } from '@/pages/progress/photos-page'
 import { ProgressPage } from '@/pages/progress-page'
@@ -115,6 +116,7 @@ export const routes = [
       { path: 'amis/:userId/progression', element: <SharedProgressPage /> },
       { path: 'partages', element: <SharesPage /> },
       { path: 'objectifs', element: <GoalsPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
       { path: 'analyse', element: <AnalysisPage /> },
       { path: 'rapports', element: <ReportsPage /> },
       { path: 'compte', element: <AccountPage /> },

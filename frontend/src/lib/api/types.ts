@@ -837,3 +837,55 @@ export interface ProgressPhotoGroup {
   created_at: string
   updated_at: string
 }
+
+export type NotificationEventType =
+  | 'meal_reminder'
+  | 'weigh_in_reminder'
+  | 'plan_reminder'
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'share_received'
+
+/** Une notification interne (spec 01 §24). */
+export interface AppNotification {
+  id: number
+  event_type: NotificationEventType
+  event_label: string
+  title: string
+  message: string
+  /** Chemin interne de l'application, jamais une URL externe. */
+  link: string | null
+  is_read: boolean
+  created_at: string
+}
+
+/**
+ * Ce qu'un compte accepte de recevoir, par type d'événement.
+ *
+ * Les six types sont toujours rendus, même sans ligne en base : une préférence
+ * absente n'est pas une préférence.
+ */
+export interface NotificationPreference {
+  event_type: NotificationEventType
+  event_label: string
+  in_app_enabled: boolean
+  email_enabled: boolean
+  /** La colonne existe (spec 03 §11) ; aucun canal ne la lit encore. */
+  push_enabled: boolean
+}
+
+export type ReminderType = 'meal' | 'weigh_in' | 'plan'
+
+/** Un rappel planifié. Un seul par type. */
+export interface Reminder {
+  id: number
+  reminder_type: ReminderType
+  type_label: string
+  /** `HH:MM:SS`. */
+  time: string
+  /** Entiers de 0 (lundi) à 6 (dimanche), convention Python. */
+  days_of_week: number[]
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}

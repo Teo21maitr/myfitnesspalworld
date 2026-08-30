@@ -1,9 +1,24 @@
 import { NavLink } from 'react-router-dom'
 
 import { usePendingRequestCount } from '@/features/friends/use-friends'
+import { useUnreadCount } from '@/features/notifications/use-notifications'
 import { cn } from '@/lib/utils'
 
 import { NAV_SECTIONS } from './navigation'
+
+/** Pastille d'attente, partagée par les entrées qui en portent une. */
+function Badge({ count, label }: { count: number; label: string }) {
+  if (count <= 0) return null
+
+  return (
+    <span
+      aria-label={label}
+      className="bg-primary text-primary-foreground ml-auto rounded-full px-1.5 text-xs"
+    >
+      {count}
+    </span>
+  )
+}
 
 /**
  * La navigation, rendue une seule fois pour deux emplacements.
@@ -12,9 +27,11 @@ import { NAV_SECTIONS } from './navigation'
  * garantit qu'une destination ajoutée apparaît des deux côtés (spec 06 §1).
  */
 export function NavList({ onNavigate }: { onNavigate?: () => void }) {
-  // Une demande d'ami arrive sans notification : la pastille est le seul
-  // signal, tant que le modèle `Notification` n'existe pas.
+  // Deux compteurs, deux entrées. Les demandes d'ami gardent le leur : elles
+  // produisent désormais une notification, mais la page Amis reste l'endroit
+  // où l'on y répond.
   const pendingRequests = usePendingRequestCount()
+  const unread = useUnreadCount()
 
   return (
     <ul className="flex flex-col gap-4">
@@ -41,13 +58,17 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 >
                   <Icon aria-hidden="true" className="size-4 shrink-0" />
                   {label}
-                  {to === '/amis' && pendingRequests > 0 && (
-                    <span
-                      aria-label={`${pendingRequests} demande${pendingRequests > 1 ? 's' : ''} en attente`}
-                      className="bg-primary text-primary-foreground ml-auto rounded-full px-1.5 text-xs"
-                    >
-                      {pendingRequests}
-                    </span>
+                  {to === '/amis' && (
+                    <Badge
+                      count={pendingRequests}
+                      label={`${pendingRequests} demande${pendingRequests > 1 ? 's' : ''} en attente`}
+                    />
+                  )}
+                  {to === '/notifications' && (
+                    <Badge
+                      count={unread}
+                      label={`${unread} notification${unread > 1 ? 's' : ''} non lue${unread > 1 ? 's' : ''}`}
+                    />
                   )}
                 </NavLink>
               </li>

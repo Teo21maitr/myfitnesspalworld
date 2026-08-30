@@ -1,5 +1,6 @@
 import {
   Apple,
+  Bell,
   BookOpen,
   CalendarDays,
   ChartNoAxesColumn,
@@ -98,7 +99,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'Compte',
-    items: [{ to: '/compte', label: 'Mon compte', Icon: UserRound, short: 'Compte' }],
+    items: [
+      { to: '/notifications', label: 'Notifications', Icon: Bell },
+      { to: '/compte', label: 'Mon compte', Icon: UserRound, short: 'Compte' },
+    ],
   },
 ]
 
