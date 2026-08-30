@@ -34,3 +34,7 @@ test-results/
 .idea/
 .vscode/
 *.swp
+
+# Jeux de données externes (Ciqual, Open Food Facts) : volumineux et sous
+# licence distincte. Le README dit où les récupérer.
+/data/

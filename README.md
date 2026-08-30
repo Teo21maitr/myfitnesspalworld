@@ -311,22 +311,31 @@ rythme, calories, macros, résumé) et n'écrit qu'à la fin, en une seule trans
 
 ### Import de la table Ciqual
 
-Le jeu de données n'est pas versionné : trop volumineux et sous licence distincte. Téléchargez-le
-sur [ciqual.anses.fr](https://ciqual.anses.fr/) (archive XML), puis :
+Le jeu de données n'est pas versionné : trop volumineux et sous licence distincte. La commande va
+le chercher elle-même — l'URL se trouve sur la page **Téléchargement** de
+[ciqual.anses.fr](https://ciqual.anses.fr/), lien « XML » :
 
 ```bash
-docker compose exec backend python manage.py import_ciqual /chemin/vers/ciqual
+docker compose exec backend python manage.py import_ciqual https://ciqual.anses.fr/cms/sites/default/files/inline-files/2025_11_03.7z
 ```
 
-L'import accepte un dossier ou une archive ZIP, lit les 55 Mo de composition en flux et se termine
-en quelques secondes pour 3 185 aliments. Il est **idempotent** : le relancer met à jour les fiches
-au lieu de les dupliquer. `--sample N` limite l'import pour le développement.
+Un dossier déjà extrait ou une archive locale font aussi l'affaire. L'archive officielle est un
+**7z**, pas un ZIP ; les deux formats sont acceptés.
+
+L'import lit les 66 Mo de composition en flux et se termine en quelques secondes pour 3 484
+aliments. Il est **idempotent** : le relancer met à jour les fiches au lieu de les dupliquer.
+`--sample N` limite l'import pour le développement.
+
+Le millésime est lu dans le nom des fichiers, jamais figé dans le code : l'Anses en publie un
+nouveau régulièrement, et une année codée en dur ferait afficher une attribution fausse sans que
+rien ne le signale.
 
 Un extrait réel de 40 aliments est versionné dans `backend/nutrition/tests/fixtures/ciqual` pour
 les tests et le parcours E2E.
 
-> **Attribution.** Anses. 2020. Table de composition nutritionnelle des aliments Ciqual. Données
-> réutilisables selon la Licence Ouverte, à condition d'indiquer la source et la version.
+> **Attribution.** Anses. Table de composition nutritionnelle des aliments Ciqual. Données
+> réutilisables selon la Licence Ouverte, à condition d'indiquer la source **et la version** —
+> que la commande affiche en fin d'import.
 
 ### Deux pièges du fichier officiel
 

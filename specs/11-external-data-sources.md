@@ -4,7 +4,8 @@
 
 Sources :
 
-1. **Ciqual** : aliments génériques français (version 2020, seule diffusée publiquement à ce jour).
+1. **Ciqual** : aliments génériques français. L'Anses publie un nouveau millésime
+   régulièrement — 2025 au moment où ceci est écrit ; le code n'en fige aucun.
 2. **Open Food Facts** : produits emballés / marques / code-barres.
 3. **Aliments utilisateur** : base interne.
 4. **USDA FoodData Central** : fallback facultatif ultérieur.
@@ -13,19 +14,25 @@ Sources :
 
 ### Ce que contient réellement le jeu
 
+Millésime 2025-11-03, publié en **7z** — pas en ZIP :
+
 | Fichier | Contenu | Volume |
 | --- | --- | --- |
-| `alim_*.xml` | aliments | 3 185 |
-| `const_*.xml` | constituants | 67 |
-| `compo_*.xml` | composition | 211 898 lignes, 55 Mo |
-| `alim_grp_*.xml` | groupes | 136 |
+| `alim_*.xml` | aliments | 3 484 |
+| `const_*.xml` | constituants | 74 |
+| `compo_*.xml` | composition | 257 816 lignes, 66 Mo |
+| `alim_grp_*.xml` | groupes | 138 |
 
-Deux pièges vérifiés à l'implémentation :
+Les chiffres bougent d'un millésime à l'autre : ils décrivent 2025, ils ne le
+contraignent pas.
+
+Trois pièges vérifiés à l'implémentation :
 
 1. l'encodage est **`windows-1252`** et les décimales utilisent la **virgule** ;
 2. les fichiers **ne sont pas du XML bien formé** : le texte contient des `<`
    bruts, dans les noms (`Panaché préemballé (<1° alc.)`) et dans les milliers
-   de teneurs de la forme `< 0,01`. Ils doivent être échappés avant analyse.
+   de teneurs de la forme `< 0,01`. Ils doivent être échappés avant analyse ;
+3. l'archive XML est un **7z**, que la bibliothèque standard ne lit pas.
 
 ### Interprétation des teneurs
 
@@ -52,7 +59,13 @@ Approche :
 - télécharger le jeu officiel ;
 - l'importer localement dans PostgreSQL ;
 - ne pas dépendre d'une API live pour la recherche ;
-- créer une commande Django `import_ciqual`;
+- créer une commande Django `import_ciqual`, qui accepte un dossier, une
+  archive 7z ou ZIP, **ou une URL https** — l'import doit pouvoir tourner dans
+  le conteneur de production, où il n'y a ni fichier déposé ni outil pour en
+  transférer un ;
+- lire le millésime **dans le jeu lui-même**, jamais dans une constante : une
+  année figée dans le code affiche une attribution fausse dès la publication
+  suivante, sans que rien ne le signale ;
 - gérer versions et upserts ;
 - ne pas permettre aux utilisateurs de modifier ces fiches ;
 - permettre à l'admin de désactiver une fiche.
