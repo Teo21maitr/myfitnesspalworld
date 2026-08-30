@@ -36,7 +36,13 @@ export function describeCameraFailure(error: unknown): CameraStatus {
   return 'error'
 }
 
-export function useCameraStream() {
+/**
+ * Ouvre la caméra et garantit qu'elle se referme.
+ *
+ * `facingMode` par défaut : la caméra arrière, celle qu'on pointe vers un
+ * emballage ou une assiette. Une photo de soi appelle l'autre.
+ */
+export function useCameraStream(facingMode: 'environment' | 'user' = 'environment') {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const stoppedRef = useRef(false)
@@ -62,9 +68,7 @@ export function useCameraStream() {
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        // Caméra arrière quand il y en a une : c'est celle qu'on pointe vers
-        // l'emballage ou vers l'assiette.
-        video: { facingMode: 'environment' },
+        video: { facingMode },
       })
     } catch (error) {
       setStatus(describeCameraFailure(error))
@@ -96,7 +100,7 @@ export function useCameraStream() {
 
     setStatus('active')
     return video
-  }, [])
+  }, [facingMode])
 
   // Libère la caméra dès que la page est quittée : le voyant ne doit pas rester
   // allumé.

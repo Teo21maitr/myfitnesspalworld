@@ -1,7 +1,9 @@
-import { TriangleAlert } from 'lucide-react'
+import { Images, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { SelectField } from '@/components/form/select-field'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { shift, today } from '@/features/diary/dates'
 import { MeasurementHistory, WeightHistory } from '@/features/progress/history-list'
@@ -28,8 +30,9 @@ function ErrorLine({ error }: { error: unknown }) {
 /**
  * Progression (spec 01 §19).
  *
- * Les photos de progression (spec 01 §20) demandent le stockage objet et ne
- * figurent pas encore sur cet écran.
+ * Les photos (spec 01 §20) vivent sur leur propre écran : elles ne sont pas
+ * des chiffres, ne se partagent sous aucune forme, et méritent d'être
+ * atteintes sans traverser trois formulaires.
  */
 export function ProgressPage() {
   const to = today()
@@ -67,6 +70,12 @@ export function ProgressPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Pesées, mensurations et tendance sur les trois derniers mois.
         </p>
+        <Button asChild variant="outline" size="sm" className="mt-3">
+          <Link to="/photos">
+            <Images aria-hidden="true" className="size-4" />
+            Mes photos
+          </Link>
+        </Button>
       </div>
 
       <Card>

@@ -30,6 +30,7 @@ import { HomePage } from '@/pages/home-page'
 import { JournalPage } from '@/pages/journal-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import { OnboardingPage } from '@/pages/onboarding-page'
+import { PhotosPage } from '@/pages/progress/photos-page'
 import { ProgressPage } from '@/pages/progress-page'
 import { EditRecipePage } from '@/pages/recipes/edit-recipe-page'
 import { NewRecipePage } from '@/pages/recipes/new-recipe-page'
@@ -108,6 +109,7 @@ export const routes = [
       { path: 'courses', element: <ShoppingListsPage /> },
       { path: 'courses/:id', element: <ShoppingListPage /> },
       { path: 'progression', element: <ProgressPage /> },
+      { path: 'photos', element: <PhotosPage /> },
       { path: 'amis', element: <FriendsPage /> },
       { path: 'amis/:userId/journal', element: <SharedDiaryPage /> },
       { path: 'amis/:userId/progression', element: <SharedProgressPage /> },

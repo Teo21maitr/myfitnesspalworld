@@ -17,6 +17,13 @@ import {
   weightQueryKey,
   type MeasurementPayload,
 } from './api'
+import {
+  deletePhoto,
+  deletePhotoGroup,
+  fetchPhotoGroups,
+  photosQueryKey,
+  uploadPhotos,
+} from './photos'
 
 export function useWeightEntries() {
   return useQuery({ queryKey: weightQueryKey, queryFn: fetchWeightEntries })
@@ -77,4 +84,48 @@ export function useDeleteMeasurement() {
   const invalidate = useProgressInvalidation()
 
   return useMutation({ mutationFn: (id: number) => deleteMeasurement(id), onSuccess: invalidate })
+}
+
+export function usePhotoGroups() {
+  return useQuery({ queryKey: photosQueryKey, queryFn: fetchPhotoGroups })
+}
+
+export function useUploadPhotos() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: uploadPhotos,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: photosQueryKey })
+    },
+  })
+}
+
+/**
+ * Suppression d'un groupe ou d'une seule photo.
+ *
+ * Elle est **définitive** des deux côtés : la ligne part, et le fichier avec
+ * elle (spec 01 §20). L'écran doit le dire avant, pas après.
+ */
+export function useDeletePhotoGroup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deletePhotoGroup,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: photosQueryKey })
+    },
+  })
+}
+
+export function useDeletePhoto() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ groupId, photoId }: { groupId: number; photoId: number }) =>
+      deletePhoto(groupId, photoId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: photosQueryKey })
+    },
+  })
 }

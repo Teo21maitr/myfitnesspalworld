@@ -7,7 +7,13 @@ import { cn } from '@/lib/utils'
 import { captureFrame, prepareImage } from './image'
 import { useCameraStream, type CameraStatus } from './use-camera-stream'
 
-/** Aligné sur la limite du backend (spec 05 §14). */
+/**
+ * Limite par défaut : une assiette photographiée sous trois angles.
+ *
+ * Les photos de progression en acceptent quatre, un par angle — d'où la prop
+ * plutôt qu'une constante partagée par deux écrans qui n'ont pas la même
+ * contrainte côté serveur.
+ */
 export const MAX_IMAGES = 3
 
 /**
@@ -70,17 +76,28 @@ export function Capture({
   pending,
   subject,
   analyzeLabel = 'Analyser',
+  maxImages = MAX_IMAGES,
+  facingMode = 'environment',
 }: {
   onAnalyze: (images: File[]) => void
   pending: boolean
   /** Complément du nom, au génitif : « du repas », « de l'étiquette ». */
   subject: string
   analyzeLabel?: string
+  /** Aligné sur la limite du backend appelé (spec 05 §14). */
+  maxImages?: number
+  /** `user` pour se photographier soi-même. */
+  facingMode?: 'environment' | 'user'
 }) {
   // Déstructuré plutôt que gardé en objet : `status` est une valeur de rendu,
   // et la lire à travers un objet qui porte aussi des références brouille la
   // distinction.
-  const { videoRef, status: cameraStatus, start: startCamera, stop: stopCamera } = useCameraStream()
+  const {
+    videoRef,
+    status: cameraStatus,
+    start: startCamera,
+    stop: stopCamera,
+  } = useCameraStream(facingMode)
   const inputRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [preparing, setPreparing] = useState(false)
@@ -97,7 +114,7 @@ export function Capture({
     setPhotos(next)
   }
 
-  const full = photos.length >= MAX_IMAGES
+  const full = photos.length >= maxImages
   const live = cameraStatus === 'active' || cameraStatus === 'starting'
   const cameraMessage = CAMERA_MESSAGES[cameraStatus]
 
@@ -116,7 +133,7 @@ export function Capture({
       apply(next)
       // Trois photos suffisent : on rend la caméra plutôt que de la laisser
       // tourner sur un déclencheur devenu inerte.
-      if (next.length >= MAX_IMAGES) closeCamera()
+      if (next.length >= maxImages) closeCamera()
     } finally {
       setShooting(false)
     }
@@ -127,7 +144,7 @@ export function Capture({
 
     setPreparing(true)
     try {
-      const room = MAX_IMAGES - photos.length
+      const room = maxImages - photos.length
       const prepared = await Promise.all(Array.from(files).slice(0, room).map(prepareImage))
       apply([...photos, ...prepared.map((file) => ({ file, preview: previewUrl(file) }))])
     } finally {
@@ -227,11 +244,7 @@ export function Capture({
         </Button>
       </div>
 
-      {full && (
-        <p className="text-muted-foreground text-xs">
-          {MAX_IMAGES} photos au maximum : au-delà, l&apos;analyse ne gagne rien.
-        </p>
-      )}
+      {full && <p className="text-muted-foreground text-xs">{maxImages} photos au maximum.</p>}
 
       {photos.length > 0 && (
         <ul className="grid grid-cols-3 gap-2">

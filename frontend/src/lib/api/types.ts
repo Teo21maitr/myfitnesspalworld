@@ -808,3 +808,32 @@ export interface PeriodReport {
     trend_per_week: string | null
   }
 }
+
+export type PhotoType = 'front' | 'side' | 'back' | 'other'
+
+/**
+ * Une photo de progression (spec 01 §20).
+ *
+ * `url` est **signée et temporaire** : le seau est privé, et cette adresse
+ * expire. La clé de stockage, elle, ne quitte jamais le serveur — non
+ * devinable, elle vaut secret d'accès (spec 05 §10).
+ */
+export interface ProgressPhoto {
+  id: number
+  photo_type: PhotoType
+  photo_type_label: string
+  url: string
+  size_bytes: number
+  created_at: string
+}
+
+/** Les photos d'une date, et ce qui les accompagne. */
+export interface ProgressPhotoGroup {
+  id: number
+  date: string
+  weight_kg_snapshot: string | null
+  notes: string | null
+  photos: ProgressPhoto[]
+  created_at: string
+  updated_at: string
+}

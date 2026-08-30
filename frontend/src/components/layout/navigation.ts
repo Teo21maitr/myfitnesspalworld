@@ -6,6 +6,7 @@ import {
   ChefHat,
   FileText,
   Home,
+  Images,
   ScanBarcode,
   ScanEye,
   ScanText,
@@ -82,6 +83,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Suivi',
     items: [
       { to: '/progression', label: 'Progression', Icon: TrendingUp },
+      { to: '/photos', label: 'Photos', Icon: Images },
       { to: '/objectifs', label: 'Objectifs', Icon: Target },
       { to: '/analyse', label: 'Analyse', Icon: ChartNoAxesColumn },
       { to: '/rapports', label: 'Rapports', Icon: FileText },
