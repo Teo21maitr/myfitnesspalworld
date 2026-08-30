@@ -317,13 +317,30 @@ AI_VOICE_PARSING_MODEL = env.str("AI_VOICE_PARSING_MODEL", default="")
 AI_RECIPE_MODEL = env.str("AI_RECIPE_MODEL", default="")
 
 # -----------------------------------------------------------------------------
-# Stockage objet — configuration seulement (spec 05 §10)
+# Stockage objet — photos de progression (spec 05 §10)
 # -----------------------------------------------------------------------------
 S3_ENDPOINT_URL = env.str("S3_ENDPOINT_URL", default="")
 S3_ACCESS_KEY_ID = env.str("S3_ACCESS_KEY_ID", default="")
 S3_SECRET_ACCESS_KEY = env.str("S3_SECRET_ACCESS_KEY", default="")
 S3_BUCKET_NAME = env.str("S3_BUCKET_NAME", default="")
 S3_REGION = env.str("S3_REGION", default="")
+
+#: Adresse du stockage **telle que le navigateur la voit**.
+#:
+#: Elle diffère de `S3_ENDPOINT_URL` dès que le backend et le stockage se
+#: parlent par un réseau privé : en local, le conteneur joint MinIO par
+#: `http://minio:9000`, un nom qui n'existe pas hors de Docker. Une URL signée
+#: est consommée par le navigateur, jamais par le backend : elle doit porter
+#: l'adresse publique — et être **signée pour elle**, l'hôte faisant partie de
+#: la signature SigV4.
+S3_PUBLIC_ENDPOINT_URL = env.str("S3_PUBLIC_ENDPOINT_URL", default="") or S3_ENDPOINT_URL
+
+#: Durée de vie d'une URL signée, en secondes.
+#:
+#: Courte par principe : une URL émise reste valable jusqu'à son expiration,
+#: même si la photo est supprimée entre-temps. C'est un accès qui survit à sa
+#: révocation, et la seule façon de le borner est de le faire expirer vite.
+PROGRESS_PHOTO_URL_TTL = env.int("PROGRESS_PHOTO_URL_TTL", default=300)
 
 MAX_UPLOAD_SIZE_MB = env.int("MAX_UPLOAD_SIZE_MB", default=10)
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE_MB * 1024 * 1024

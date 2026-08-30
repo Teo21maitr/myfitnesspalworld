@@ -18,4 +18,11 @@ progress_patterns = [
         name="measurement-detail",
     ),
     path("charts/", views.ProgressChartView.as_view(), name="charts"),
+    path("photos/", views.ProgressPhotoListCreateView.as_view(), name="photo-list"),
+    path("photos/<int:pk>/", views.ProgressPhotoGroupDetailView.as_view(), name="photo-detail"),
+    path(
+        "photos/<int:pk>/files/<int:photo_id>/",
+        views.ProgressPhotoDetailView.as_view(),
+        name="photo-file",
+    ),
 ]

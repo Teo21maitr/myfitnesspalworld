@@ -26,6 +26,12 @@ anthropic==1.2.0
 # sans embarquer de fichier de police, et rien à installer sur l'hôte.
 reportlab==5.0.1
 
+# Stockage objet S3-compatible : photos de progression (spec 05 §10).
+boto3==1.43.83
+
+# Traitement des images envoyées : redimensionnement et retrait de l'EXIF.
+Pillow==12.3.0
+
 # Tâches asynchrones
 celery[redis]==5.6.3
 # redis-py est contraint par kombu (celery) : redis<6.5

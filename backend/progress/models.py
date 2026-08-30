@@ -1,8 +1,12 @@
-"""Suivi de la progression : poids et mensurations (spec 01 §19, spec 03 §10).
+"""Suivi de la progression : poids, mensurations et photos (spec 01 §19-§20).
 
-Les photos de progression (spec 01 §20) attendent le stockage objet, qui n'est
-pas encore configuré.
+Les photos sont les seules données du projet qui vivent hors de la base. Leur
+modèle ne porte donc pas l'image mais sa **clé de stockage** — et cette clé,
+étant non devinable, est de fait un secret d'accès : elle ne sort jamais dans
+une réponse d'API et ne se journalise pas (spec 05 §10 et §15).
 """
+
+from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -129,3 +133,95 @@ class BodyMeasurementEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} — mensurations du {self.date}"
+
+
+class PhotoType(models.TextChoices):
+    """Les quatre angles de la spec 01 §20."""
+
+    FRONT = "front", "Face"
+    SIDE = "side", "Profil"
+    BACK = "back", "Dos"
+    OTHER = "other", "Autre"
+
+
+class ProgressPhotoGroup(models.Model):
+    """Les photos d'une date, et ce qui les accompagne (spec 01 §20).
+
+    Un groupe par date : la spec parle de « plusieurs photos par date », donc
+    d'un ensemble qui porte la date, la note et la pesée du jour, tandis que
+    chaque photo ne porte que son fichier.
+    """
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="progress_photo_groups",
+        verbose_name="utilisateur",
+    )
+    date = models.DateField("date")
+    weight_kg_snapshot = models.DecimalField(
+        "poids du jour (kg)",
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("20"))],
+        help_text="Recopié à l'ajout : la pesée peut changer, la photo non.",
+    )
+    notes = models.TextField("note", null=True, blank=True)  # noqa: DJ001 - nulle si absente
+    created_at = models.DateTimeField("créé le", auto_now_add=True)
+    updated_at = models.DateTimeField("modifié le", auto_now=True)
+
+    class Meta:
+        verbose_name = "groupe de photos"
+        verbose_name_plural = "groupes de photos"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date"], name="progress_photo_group_unique_per_date"
+            ),
+            models.CheckConstraint(
+                condition=Q(weight_kg_snapshot__isnull=True) | Q(weight_kg_snapshot__gt=0),
+                name="progress_photo_group_positive_weight",
+            ),
+        ]
+        indexes = [models.Index(fields=["user", "-date"])]
+
+    def __str__(self) -> str:
+        return f"Photos du {self.date}"
+
+
+class ProgressPhoto(models.Model):
+    """Une photo, désignée par sa clé de stockage.
+
+    L'image elle-même vit dans un seau privé. La ligne ne porte que de quoi la
+    retrouver — et supprimer cette ligne ne suffit donc jamais : l'objet doit
+    partir avec elle (spec 01 §20).
+    """
+
+    group = models.ForeignKey(
+        ProgressPhotoGroup,
+        on_delete=models.CASCADE,
+        related_name="photos",
+        verbose_name="groupe",
+    )
+    photo_type = models.CharField(
+        "angle", max_length=16, choices=PhotoType.choices, default=PhotoType.OTHER
+    )
+    storage_key = models.CharField(
+        "clé de stockage",
+        max_length=255,
+        unique=True,
+        help_text="Non devinable, donc secrète : elle n'apparaît dans aucune réponse d'API.",
+    )
+    mime_type = models.CharField("type", max_length=64)
+    size_bytes = models.PositiveIntegerField("taille (octets)")
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "photo de progression"
+        verbose_name_plural = "photos de progression"
+        ordering = ["photo_type", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.get_photo_type_display()} — {self.group.date}"

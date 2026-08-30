@@ -4,7 +4,14 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from progress.models import MEASUREMENT_FIELDS, BodyMeasurementEntry, WeightEntry
+from progress.models import (
+    MEASUREMENT_FIELDS,
+    BodyMeasurementEntry,
+    ProgressPhoto,
+    ProgressPhotoGroup,
+    WeightEntry,
+)
+from progress.services import photo_storage
 
 
 class WeightEntrySerializer(serializers.ModelSerializer):
@@ -79,3 +86,45 @@ class ChartSeriesSerializer(serializers.Serializer):
         data["from"] = instance["from"].isoformat()
         data["to"] = instance["to"].isoformat()
         return data
+
+
+class ProgressPhotoSerializer(serializers.ModelSerializer):
+    """Une photo, et l'URL temporaire qui permet de la voir.
+
+    `storage_key` **n'est jamais rendue**. Elle est non devinable, donc de fait
+    un secret d'accès : la publier offrirait une cible à qui l'obtiendrait
+    autrement (spec 05 §10).
+    """
+
+    url = serializers.SerializerMethodField()
+    photo_type_label = serializers.CharField(source="get_photo_type_display", read_only=True)
+
+    class Meta:
+        model = ProgressPhoto
+        fields = ("id", "photo_type", "photo_type_label", "url", "size_bytes", "created_at")
+        read_only_fields = fields
+
+    def get_url(self, obj: ProgressPhoto) -> str:
+        return photo_storage.signed_url(obj.storage_key)
+
+
+class ProgressPhotoGroupSerializer(serializers.ModelSerializer):
+    """Les photos d'une date, et ce qui les accompagne.
+
+    Les fichiers arrivent par `POST` en multipart ; ce sérialiseur ne porte que
+    les métadonnées, qui sont aussi les seules que `PATCH` accepte — « le
+    fichier n'est pas modifié : supprimer/réuploader pour remplacer »
+    (spec 04 §15).
+    """
+
+    photos = ProgressPhotoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ProgressPhotoGroup
+        fields = ("id", "date", "weight_kg_snapshot", "notes", "photos", "created_at", "updated_at")
+        read_only_fields = ("id", "photos", "created_at", "updated_at")
+
+    def validate_weight_kg_snapshot(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("Le poids doit être strictement positif.")
+        return value

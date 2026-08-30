@@ -52,3 +52,58 @@ def auth_client(active_user):
     client.cookies[settings.AUTH_COOKIE_ACCESS_NAME] = str(refresh.access_token)
     client.cookies[settings.AUTH_COOKIE_REFRESH_NAME] = str(refresh)
     return client
+
+
+class FakeS3:
+    """Client S3 en mémoire, pour les tests.
+
+    Les paramètres portent les noms de `boto3` — majuscules comprises — pour
+    que le service soit appelé exactement comme il appellera le vrai client.
+    Ce qui compte ici est de pouvoir **compter ce qui reste**.
+    """
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.last_expiry: int | None = None
+
+    def put_object(self, *, Bucket, Key, Body, ContentType):
+        self.objects[Key] = Body
+        return {}
+
+    def generate_presigned_url(self, operation, *, Params, ExpiresIn):
+        self.last_expiry = ExpiresIn
+        return f"https://seau.test/{Params['Key']}?expires={ExpiresIn}"
+
+    def delete_objects(self, *, Bucket, Delete):
+        for entry in Delete["Objects"]:
+            self.objects.pop(entry["Key"], None)
+        return {}
+
+    def count(self) -> int:
+        return len(self.objects)
+
+
+@pytest.fixture
+def fake_storage(settings):
+    """Remplace le stockage objet, et le rend inspectable."""
+    from progress.services import photo_storage
+
+    settings.S3_BUCKET_NAME = "seau-de-test"
+    settings.S3_ENDPOINT_URL = "http://stockage.test"
+
+    client = FakeS3()
+    photo_storage.set_client(client)
+    yield client
+    photo_storage.set_client(None)
+
+
+@pytest.fixture
+def jpeg_bytes() -> bytes:
+    """Un vrai JPEG minuscule, que Pillow sait rouvrir."""
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (40, 30), (90, 30, 30)).save(buffer, format="JPEG")
+    return buffer.getvalue()
