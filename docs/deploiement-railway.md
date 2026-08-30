@@ -297,20 +297,33 @@ railway config apply
 | Root Directory | `/frontend` |
 | Branch | `main` |
 
-Une seule variable, et c'est la plus piégeuse du déploiement :
+Deux variables :
 
 ```bash
-VITE_API_BASE_URL=https://<ton-backend>/api/v1
+VITE_API_BASE_URL=/api/v1
+BACKEND_ORIGIN=https://<ton-backend>
 ```
 
-> **Elle est figée dans le bundle.** C'est une variable de **construction**, pas
-> d'exécution : la changer plus tard n'a aucun effet tant que le frontend n'est
-> pas **reconstruit**. Retiens-le pour l'étape 7.
+> **Le frontend sert aussi l'API.** nginx relaie `/api/` vers le backend, si
+> bien que le navigateur ne parle **qu'à une seule origine**. `BACKEND_ORIGIN`
+> lui dit où — **sans barre finale**, faute de quoi nginx retirerait `/api/` du
+> chemin transmis et le backend répondrait 404.
 >
-> Si elle n'arrive pas jusqu'à la construction, celle-ci **échoue** avec un
-> message explicite plutôt que de produire un bundle qui appellerait
-> `localhost`. C'est délibéré : après la construction, ce défaut n'est plus
-> rattrapable.
+> Ce n'est pas un détail de confort. Sans ce relais, l'application et l'API
+> vivent sur deux sous-domaines de `up.railway.app`, un **suffixe public** :
+> deux *sites* distincts pour le navigateur. Le cookie de session y est un
+> cookie tiers, au même titre que celui d'une régie publicitaire — **Safari les
+> bloque sans condition**. L'application marche alors sur ordinateur et pas sur
+> téléphone, ce qui est le pire des deux mondes pour une application pensée
+> mobile.
+>
+> **`VITE_API_BASE_URL` est figée dans le bundle.** C'est une variable de
+> **construction**, pas d'exécution : la changer impose une **reconstruction**,
+> pas un redémarrage. `BACKEND_ORIGIN`, elle, est lue au démarrage de nginx :
+> un redémarrage suffit.
+>
+> L'hôte de `BACKEND_ORIGIN` doit figurer dans `DJANGO_ALLOWED_HOSTS` : nginx
+> transmet ce nom en `Host`, et Django refuse ce qu'il ne connaît pas.
 
 Puis **Settings → Networking → Generate Domain**.
 
@@ -338,9 +351,22 @@ CSRF_TRUSTED_ORIGINS=https://<ton-frontend>,https://<ton-backend>
 DJANGO_ALLOWED_HOSTS=<ton-backend sans https://>
 ```
 
-Puis, dans le **frontend**, vérifie que `VITE_API_BASE_URL` pointe bien sur le
-backend et **déclenche une reconstruction** — un simple redémarrage ne suffit
-pas, l'adresse est dans le bundle.
+Puis, dans le **frontend**, pose `BACKEND_ORIGIN=https://<ton-backend>` et
+vérifie que `VITE_API_BASE_URL` vaut `/api/v1`. **Déclenche une
+reconstruction** — un simple redémarrage ne suffit pas pour la seconde, elle
+est dans le bundle.
+
+> **Vérification.** Le relais doit servir l'API sous l'origine de
+> l'application :
+>
+> ```bash
+> curl -s https://<ton-frontend>/api/v1/health/
+> ```
+>
+> Il doit rendre le même `{"status": "ok", ...}` que le backend en direct. Un
+> **502** veut dire que nginx ne joint pas l'amont ; un **400**, que l'hôte de
+> `BACKEND_ORIGIN` manque à `DJANGO_ALLOWED_HOSTS` ; un **404**, que
+> `BACKEND_ORIGIN` porte une barre finale.
 
 Deux cookies méritent une attention si tes deux services sont sur des domaines
 **différents** (`backend-xxx.up.railway.app` et `frontend-xxx.up.railway.app` en
@@ -473,7 +499,10 @@ La liste est embarquée dans les navigateurs ; en sortir prend des mois.
 | 403 CSRF à la connexion | `CSRF_TRUSTED_ORIGINS` incomplet, ou cookies bloqués : vérifie `AUTH_COOKIE_SAMESITE=None` sur deux domaines distincts |
 | 403 « CSRF cookie not set » alors qu'on est connecté | Le cookie CSRF n'a pas la portée du cookie d'authentification. Il la suit désormais automatiquement ; `curl -sI <backend>/api/v1/auth/csrf/` doit montrer `SameSite=None` |
 | Le frontend appelle `localhost` | `VITE_API_BASE_URL` posée après la construction. Reconstruis |
-| La construction du frontend échoue | `VITE_API_BASE_URL` absente. C'est la garde qui parle, et elle a raison |
+| `/api/v1/...` répond **502** | nginx ne joint pas l'amont : `BACKEND_ORIGIN` absente ou fausse |
+| `/api/v1/...` répond **400** | L'hôte de `BACKEND_ORIGIN` manque à `DJANGO_ALLOWED_HOSTS` |
+| `/api/v1/...` répond **404** alors que le backend répond | `BACKEND_ORIGIN` porte une barre finale : nginx retire `/api/` du chemin |
+| Connexion impossible sur téléphone, correcte sur ordinateur | Le relais n'est pas en place : le cookie de session est un cookie tiers, que Safari bloque |
 | Aucun email n'arrive, aucune ligne dans `EmailLog` | L'envoi n'a pas été tenté ou a été interrompu. Cherche `WORKER TIMEOUT` dans les journaux : la plateforme bloque le SMTP sortant, et la connexion pend |
 | `WORKER TIMEOUT` sur une action d'administration | Un envoi d'email vers un serveur injoignable. `EMAIL_TIMEOUT` borne les deux chemins, SMTP et API |
 | `EmailLog` dit `FAILED` avec Resend | Domaine non vérifié, ou envoi hors de ton adresse de compte depuis `onboarding@resend.dev` |

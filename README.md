@@ -1387,11 +1387,16 @@ FRONTEND_URL=               BACKEND_URL=
 DEFAULT_FROM_EMAIL=         EMAIL_BACKEND=
 ```
 
-Le frontend n'en a qu'une, et elle se donne **à la construction** :
+Le frontend en a deux, et la première se donne **à la construction** :
 
 ```text
-VITE_API_BASE_URL=https://api.exemple.com/api/v1
+VITE_API_BASE_URL=/api/v1                  BACKEND_ORIGIN=https://api.exemple.com
 ```
+
+`VITE_API_BASE_URL` vaut déjà `/api/v1` par défaut : l'application interroge sa propre origine, et
+nginx relaie vers le backend. `BACKEND_ORIGIN` dit à nginx où, **sans barre finale** — avec, il
+retirerait `/api/` du chemin transmis. Une URL absolue reste acceptée pour un déploiement sans
+relais.
 
 Facultatives : `ANTHROPIC_API_KEY` et les modèles (sans elles l'IA répond 503), les cinq `S3_*`
 (sans elles l'envoi d'une photo répond 503), et les réglages SMTP de l'hébergeur d'emails.
@@ -1407,14 +1412,20 @@ erreur :
 | --- | --- | --- |
 | `FRONTEND_URL` | Lien de réinitialisation vers `localhost` | Un email part, `EmailLog` dit « SENT » |
 | `EMAIL_BACKEND` | Emails écrits dans `stdout` | `EmailLog` dit « SENT » |
+| `RESEND_API_KEY` | Envois refusés par le fournisseur | `EmailLog` dit « FAILED », mais seulement au premier compte qui attend |
 | `VITE_API_BASE_URL` | Bundle appelant `localhost:8001` | La construction **réussit** |
 | `DJANGO_SETTINGS_MODULE` | Réglages de développement | `DEBUG=True`, cookies non `Secure` |
 
-Les trois premières font désormais échouer le démarrage ou la construction, avec un message qui dit
-**pourquoi** — un refus muet ferait perdre autant de temps que le défaut qu'il évite. La quatrième
-est traitée dans l'autre sens : l'image de production pose elle-même
+Les trois premières font désormais échouer le démarrage, avec un message qui dit **pourquoi** — un
+refus muet ferait perdre autant de temps que le défaut qu'il évite.
+
+Les deux dernières sont traitées autrement, et mieux : en **supprimant le défaut** plutôt qu'en le
+détectant. L'image de production pose elle-même
 `DJANGO_SETTINGS_MODULE=config.settings.production`, si bien qu'un oubli donne la production et
-jamais le développement. C'est le sens sûr de l'erreur.
+jamais le développement. Et `VITE_API_BASE_URL` vaut maintenant `/api/v1`, une adresse relative :
+elle est juste partout, donc plus rien à oublier. La garde qui exigeait cette variable a disparu
+avec la faute qu'elle guettait — une garde devenue sans objet vaut mieux qu'une garde qu'on
+maintient par habitude.
 
 ### Une garde que rien n'exerce est une garde cassée
 
@@ -1474,7 +1485,7 @@ fichiers d'environnement de sa propre racine.
 | Stockage S3 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_REGION` |
 | Uploads | `MAX_UPLOAD_SIZE_MB` |
 | Ports Docker | `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, `MAILPIT_UI_PORT`, `MAILPIT_SMTP_PORT` |
-| Frontend | `VITE_API_BASE_URL` (dans `frontend/.env`) |
+| Frontend | `VITE_API_BASE_URL` et `VITE_API_PROXY_TARGET` (dans `frontend/.env`) |
 
 Renseignez `OFF_CONTACT_EMAIL` : Open Food Facts exige un User-Agent identifiant l'application
 et un contact, faute de quoi les appels risquent d'être pris pour ceux d'un robot.
