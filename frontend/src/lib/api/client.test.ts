@@ -8,6 +8,7 @@ import {
   apiRequest,
   NetworkError,
   resetSessionRefresh,
+  resetCsrfToken,
   setUnauthorizedHandler,
 } from './client'
 
@@ -31,6 +32,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   clearCsrfCookie()
+  resetCsrfToken()
   setUnauthorizedHandler(null)
   // Le client garde en mémoire qu'un renouvellement a échoué : chaque test
   // repart d'un état neuf.
@@ -137,12 +139,12 @@ describe('CSRF', () => {
     expect(headers.get('X-CSRFToken')).toBeNull()
   })
 
-  it('amorce le cookie avant la première écriture quand il est absent', async () => {
+  it('amorce le jeton avant la première écriture quand il est absent', async () => {
     clearCsrfCookie()
     const spy = stubFetch([
       {
         match: '/auth/csrf/',
-        respond: () => jsonResponse({ detail: 'Cookie CSRF posé.' }),
+        respond: () => jsonResponse({ csrf_token: 'jeton-du-corps' }),
       },
       { match: '/diary/entries/', respond: () => jsonResponse({ ok: true }) },
     ])
@@ -152,6 +154,70 @@ describe('CSRF', () => {
     const urls = spy.mock.calls.map((call) => String(call[0]))
     expect(urls[0]).toContain('/auth/csrf/')
     expect(urls[1]).toContain('/diary/entries/')
+  })
+
+  it('emploie le jeton du corps quand le cookie est illisible', async () => {
+    // Le cas de la production : l'API vit sur un autre domaine, donc
+    // `document.cookie` ne la voit pas. Le navigateur envoie bien le cookie —
+    // le serveur le lit — mais nous ne pouvons pas le recopier dans l'en-tête.
+    clearCsrfCookie()
+    const spy = stubFetch([
+      { match: '/auth/csrf/', respond: () => jsonResponse({ csrf_token: 'jeton-du-corps' }) },
+      { match: '/diary/entries/', respond: () => jsonResponse({ ok: true }) },
+    ])
+
+    await api.post('/diary/entries/', { quantity: 1 })
+
+    expect((lastCallInit(spy).headers as Headers).get('X-CSRFToken')).toBe('jeton-du-corps')
+  })
+
+  it('rejoue une fois avec un jeton neuf quand le sien est périmé', async () => {
+    // Un cookie effacé dans un autre onglet rendrait sinon toute écriture
+    // impossible jusqu'au rechargement de la page.
+    clearCsrfCookie()
+    let entryCalls = 0
+    const spy = stubFetch([
+      { match: '/auth/csrf/', respond: () => jsonResponse({ csrf_token: `jeton-${entryCalls}` }) },
+      {
+        match: '/diary/entries/',
+        respond: () => {
+          entryCalls += 1
+          if (entryCalls === 1) {
+            return jsonResponse(
+              { code: 'csrf_failed', message: 'Échec de la vérification CSRF.', errors: {} },
+              403,
+            )
+          }
+          return jsonResponse({ ok: true })
+        },
+      },
+    ])
+
+    await api.post('/diary/entries/', { quantity: 1 })
+
+    expect(entryCalls).toBe(2)
+    expect((lastCallInit(spy).headers as Headers).get('X-CSRFToken')).toBe('jeton-1')
+  })
+
+  it('ne rejoue pas un vrai refus d’accès', async () => {
+    let calls = 0
+    const spy = stubFetch([
+      {
+        match: '/diary/entries/',
+        respond: () => {
+          calls += 1
+          return jsonResponse(
+            { code: 'permission_denied', message: 'Accès refusé.', errors: {} },
+            403,
+          )
+        },
+      },
+    ])
+
+    await expect(api.post('/diary/entries/', { quantity: 1 })).rejects.toThrow(ApiError)
+
+    expect(calls).toBe(1)
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 })
 

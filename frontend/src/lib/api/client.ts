@@ -116,9 +116,9 @@ async function performRequest<T>(path: string, options: RequestOptions): Promise
 
   // Django exige l'en-tête CSRF sur les méthodes non idempotentes.
   if (UNSAFE_METHODS.has(method)) {
-    const csrfToken = readCookie(CSRF_COOKIE_NAME)
-    if (csrfToken) {
-      requestHeaders.set('X-CSRFToken', csrfToken)
+    const token = currentCsrfToken()
+    if (token) {
+      requestHeaders.set('X-CSRFToken', token)
     }
   }
 
@@ -209,15 +209,42 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   onUnauthorized = handler
 }
 
-/** Amorce le cookie CSRF avant la première écriture de la session. */
-async function ensureCsrfCookie(): Promise<void> {
-  if (readCookie(CSRF_COOKIE_NAME)) return
+/**
+ * Jeton CSRF conservé en mémoire.
+ *
+ * Le cookie ne suffit pas quand l'API vit sur un autre domaine que
+ * l'application : `document.cookie` ne donne accès qu'aux cookies du domaine
+ * courant. Le navigateur envoie bien celui de l'API à chaque requête — le
+ * serveur le voit — mais nous ne pouvons pas le lire pour le recopier dans
+ * l'en-tête. `/auth/csrf/` rend donc aussi le jeton dans son corps.
+ *
+ * En mémoire seulement : un rechargement le redemande, et rien n'en subsiste
+ * sur le disque (spec 05 §5).
+ */
+let csrfToken: string | null = null
+
+/** Oublie le jeton conservé. Employé par les tests, et au changement de session. */
+export function resetCsrfToken(): void {
+  csrfToken = null
+}
+
+/** Le cookie s'il est lisible — même domaine —, sinon le jeton rapatrié. */
+function currentCsrfToken(): string | null {
+  return readCookie(CSRF_COOKIE_NAME) ?? csrfToken
+}
+
+/** Amorce le jeton CSRF avant la première écriture de la session. */
+async function ensureCsrfToken(): Promise<void> {
+  if (currentCsrfToken()) return
 
   try {
-    await performRequest('/auth/csrf/', { method: 'GET' })
+    const { csrf_token } = await performRequest<{ csrf_token: string }>('/auth/csrf/', {
+      method: 'GET',
+    })
+    csrfToken = csrf_token
   } catch {
-    // L'absence de cookie CSRF se manifestera par une 403 explicite, plus
-    // parlante qu'un échec silencieux ici.
+    // L'absence de jeton se manifestera par une 403 explicite, plus parlante
+    // qu'un échec silencieux ici.
   }
 }
 
@@ -225,13 +252,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const method = (options.method ?? 'GET').toUpperCase()
 
   if (UNSAFE_METHODS.has(method)) {
-    await ensureCsrfCookie()
+    await ensureCsrfToken()
   }
 
   try {
     return await performRequest<T>(path, options)
   } catch (error) {
     const isAuthRoute = AUTH_PATHS.some((authPath) => path.startsWith(authPath))
+
+    // Un jeton périmé — cookie effacé ailleurs, session repartie — rendrait
+    // toute écriture impossible jusqu'au rechargement de la page. Un seul
+    // rejeu, avec un jeton neuf. Le code distingue ce cas d'un vrai refus
+    // d'accès, qu'aucun rejeu ne réparerait.
+    if (error instanceof ApiError && error.code === 'csrf_failed') {
+      csrfToken = null
+      await ensureCsrfToken()
+      return performRequest<T>(path, options)
+    }
 
     if (!(error instanceof ApiError) || !error.isUnauthorized || isAuthRoute) {
       throw error

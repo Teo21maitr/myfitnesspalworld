@@ -56,7 +56,7 @@ export function stubAnonymous() {
   return stubFetch([
     {
       match: '/auth/csrf/',
-      respond: () => jsonResponse({ detail: 'ok' }),
+      respond: () => jsonResponse({ csrf_token: 'jeton-de-test' }),
     },
     {
       match: '/auth/me/',
