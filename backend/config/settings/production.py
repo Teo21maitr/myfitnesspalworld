@@ -67,6 +67,19 @@ CSRF_COOKIE_SECURE = True
 AUTH_COOKIE_SECURE = env.bool("AUTH_COOKIE_SECURE", default=True)
 AUTH_COOKIE_SAMESITE = env.str("AUTH_COOKIE_SAMESITE", default="None")
 
+#: Le cookie CSRF suit le cookie d'authentification, et n'a pas son propre
+#: réglage : les deux voyagent sur la même requête, vers le même domaine.
+#:
+#: Les laisser diverger produit la pire des pannes — l'authentification passe,
+#: l'écriture est refusée. L'utilisateur se connecte, navigue, puis reçoit un
+#: « CSRF cookie not set » sur son premier enregistrement. Rien dans ce message
+#: ne désigne le `SameSite` d'un cookie, et rien ne se voit en local, où
+#: frontend et backend partagent le site `localhost`.
+#:
+#: C'est arrivé : `up.railway.app` est un suffixe public, donc deux
+#: sous-domaines Railway sont deux **sites** pour le navigateur.
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)
 
 # -----------------------------------------------------------------------------

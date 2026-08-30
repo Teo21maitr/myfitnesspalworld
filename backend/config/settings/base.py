@@ -205,6 +205,10 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[FRONTEND_URL, BACKEND_URL])
 CSRF_COOKIE_HTTPONLY = False  # lu par le frontend pour renvoyer l'en-tête CSRF
 CSRF_COOKIE_NAME = "mfp_csrftoken"
+# Le cookie CSRF accompagne toujours celui d'authentification : même requête,
+# même domaine, donc même portée. Chaque module d'environnement le redérive
+# après avoir fixé `AUTH_COOKIE_SAMESITE`.
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
 CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
 
 # -----------------------------------------------------------------------------
@@ -277,6 +281,19 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+
+#: Délai maximal d'une opération SMTP.
+#:
+#: Sans lui, `smtplib` attend indéfiniment. L'envoi étant synchrone, un serveur
+#: qui ne répond pas immobilise un worker gunicorn jusqu'à ce que celui-ci soit
+#: **tué** — et le worker mort n'exécute pas le `except` qui aurait journalisé
+#: l'échec : l'action métier réussit, l'email ne part pas, et `EmailLog` reste
+#: vide. Une panne sans trace.
+#:
+#: C'est arrivé en production : la plateforme bloque le SMTP sortant, la
+#: connexion pendait, et l'acceptation d'un compte tuait un worker à chaque
+#: fois.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="MyFitnessPalworld <noreply@localhost>")
 
 # -----------------------------------------------------------------------------

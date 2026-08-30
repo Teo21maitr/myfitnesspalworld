@@ -202,3 +202,61 @@ class TestSondeDePlateforme:
         assert any(re.match(pattern, "health/") for pattern in module.SECURE_REDIRECT_EXEMPT), (
             "le chemin de la sonde doit échapper à la redirection"
         )
+
+
+class TestCookiesEntreDomaines:
+    """Le cookie CSRF doit voyager exactement comme celui d'authentification.
+
+    Les laisser diverger produit la panne la plus déroutante possible :
+    l'utilisateur se connecte, navigue, et son premier enregistrement échoue en
+    403 « CSRF cookie not set ». Le message ne désigne aucun réglage, et rien
+    ne se voit en local où frontend et backend partagent le site `localhost`.
+
+    C'est arrivé : `up.railway.app` est un suffixe public, donc deux
+    sous-domaines de la plateforme sont deux *sites* pour le navigateur.
+    """
+
+    def test_les_deux_cookies_ont_la_meme_portee(self, production_env):
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.CSRF_COOKIE_SAMESITE == module.AUTH_COOKIE_SAMESITE
+
+    def test_par_defaut_ils_traversent_les_domaines(self, production_env):
+        """Frontend et API sont sur deux domaines : `Lax` ne passerait pas.
+
+        La variable est retirée de l'environnement : le `.env` du dépôt la fixe
+        à `Lax` pour le développement, et sa valeur survit dans `os.environ` au
+        ré-import. Sans ce retrait, le test lirait le réglage local en croyant
+        éprouver le défaut de production.
+        """
+        production_env.delenv("AUTH_COOKIE_SAMESITE", raising=False)
+
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.CSRF_COOKIE_SAMESITE == "None"
+        # `SameSite=None` impose `Secure`, sans quoi le navigateur ignore le cookie.
+        assert module.CSRF_COOKIE_SECURE is True
+
+    def test_un_deploiement_mono_domaine_les_resserre_ensemble(self, production_env):
+        """Un jour sur un seul domaine, `Lax` redevient le bon choix — pour les deux."""
+        production_env.setenv("AUTH_COOKIE_SAMESITE", "Lax")
+
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.AUTH_COOKIE_SAMESITE == "Lax"
+        assert module.CSRF_COOKIE_SAMESITE == "Lax"
+
+
+class TestEnvoiBorne:
+    """Un envoi d'email ne doit jamais pouvoir immobiliser une requête.
+
+    L'envoi est synchrone. Sans délai maximal, `smtplib` attend indéfiniment :
+    le worker gunicorn est tué avant d'avoir pu journaliser l'échec, et
+    l'incident ne laisse **aucune trace** dans `EmailLog`.
+    """
+
+    def test_un_envoi_a_un_delai_maximal(self, production_env):
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.EMAIL_TIMEOUT, "sans délai, un SMTP muet tue un worker"
+        assert module.EMAIL_TIMEOUT <= 30, "au-delà, gunicorn tue le worker avant"

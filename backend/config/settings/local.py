@@ -21,6 +21,9 @@ CORS_ALLOWED_ORIGINS = env.list(
 AUTH_COOKIE_SECURE = env.bool("AUTH_COOKIE_SECURE", default=False)
 AUTH_COOKIE_SAMESITE = env.str("AUTH_COOKIE_SAMESITE", default="Lax")
 
+# Le cookie CSRF suit celui d'authentification, ici comme en production.
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
