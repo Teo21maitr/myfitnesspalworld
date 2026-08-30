@@ -1333,6 +1333,10 @@ sur chaque pull request.
 L'application se déploie sur Railway depuis la branche `main` (spec 09). Le dépôt porte tout ce qui
 peut l'être ; ce qui suit décrit le reste.
 
+> **Pour un premier déploiement, suis [`docs/deploiement-railway.md`](docs/deploiement-railway.md)**
+> — la séquence exacte, étape par étape, avec une vérification à chaque palier. Cette section-ci est
+> la référence à laquelle on revient ensuite.
+
 ### Ce que je ne peux pas faire
 
 Trois choses restent à toi, et aucune clé ne passe par moi : **créer le projet Railway**, **saisir
@@ -1344,14 +1348,15 @@ jamais.
 | Service | Racine | Commande de démarrage |
 | --- | --- | --- |
 | `backend` | `/backend` | celle de `railway.json` (gunicorn sur `$PORT`) |
-| `celery-worker` | `/backend` | `celery -A config worker -l info` |
-| `celery-beat` | `/backend` | `celery -A config beat -l info` |
+| `celery-worker` | `/backend` | `railway.worker.json` |
+| `celery-beat` | `/backend` | `railway.beat.json` |
 | `frontend` | `/frontend` | celle de l'image (nginx sur `$PORT`) |
 
-`backend/railway.json` et `frontend/railway.json` déclarent le constructeur, le healthcheck
-`/health/` et le pré-déploiement `migrate`. Les deux services Celery partagent la racine `/backend`
-et ne diffèrent que par leur commande, qui se pose dans l'interface — Railway ne lit qu'un
-`railway.json` par racine.
+`backend/railway.json` déclare le constructeur, le healthcheck `/health/` et le pré-déploiement
+`migrate`. Les deux services Celery partagent la racine `/backend` mais **pas** ce fichier : ils
+pointent, par le réglage *Config-as-code* de Railway, vers `railway.worker.json` et
+`railway.beat.json`. Sans cela ils hériteraient de la commande gunicorn et d'un healthcheck HTTP
+qu'un worker ne peut pas satisfaire, n'écoutant sur aucun port.
 
 Seuls `backend` et `frontend` reçoivent un domaine public.
 

@@ -442,9 +442,13 @@ Les migrations destructives rendent les rollbacks plus dangereux : les éviter.
 Ajouté à l'étape 19, pour que le déploiement ne repose pas seulement sur des réglages saisis dans
 une interface :
 
-- `backend/railway.json` et `frontend/railway.json` — constructeur, healthcheck `/health/` et
-  pré-déploiement `migrate`. Les deux services Celery partagent la racine `/backend` : Railway ne
-  lit qu'un fichier par racine, leurs commandes se posent dans l'interface.
+- `backend/railway.json`, `backend/railway.worker.json`, `backend/railway.beat.json` et
+  `frontend/railway.json` — constructeur, healthcheck `/health/` et pré-déploiement `migrate`. Les
+  trois services backend partagent la racine `/backend` : un fichier unique ferait hériter au worker
+  et au beat la commande gunicorn **et** un healthcheck HTTP qu'ils ne peuvent pas satisfaire. Chacun
+  pointe donc vers le sien par le réglage *Config-as-code*.
+- `docs/deploiement-railway.md` — la marche à suivre, étape par étape, avec une vérification à
+  chaque palier.
 - `backend/Dockerfile` en trois étages. `production` n'installe **pas** `requirements-dev.txt`, pose
   `DJANGO_SETTINGS_MODULE=config.settings.production` — un oubli donne alors la production, jamais
   le développement — et exécute `collectstatic` **à la construction** plutôt qu'au pré-déploiement,
