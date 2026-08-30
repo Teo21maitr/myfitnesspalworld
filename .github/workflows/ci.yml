@@ -98,8 +98,13 @@ jobs:
       - name: Tests (Vitest)
         run: npm run test
 
+      # `VITE_API_BASE_URL` est figée dans le bundle : `vite.config.ts` refuse
+      # désormais de construire sans elle. La valeur importe peu ici — ce qui
+      # compte est que la construction soit déclarée quelque part.
       - name: Build
         run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.example.com/api/v1
 
   e2e:
     name: E2E (Playwright)
@@ -242,3 +247,142 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+  deploy:
+    name: Images de production
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mfp
+          POSTGRES_PASSWORD: mfp
+          POSTGRES_DB: mfp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mfp -d mfp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      # Valeurs jetables : ce job éprouve la **configuration**, pas un secret.
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      # Assez longue et variée pour satisfaire security.W009 : la contrôler
+      # est justement l'objet de ce job.
+      DJANGO_SECRET_KEY: kQ7x-Zr2@Lm9pTvB!4nWyE6sHc0JdRfUgAeXoIzMbNqYtPlCkV3
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost:8080
+      CSRF_TRUSTED_ORIGINS: http://localhost:8080
+      FRONTEND_URL: http://localhost:8080
+      BACKEND_URL: http://localhost:8000
+      DEFAULT_FROM_EMAIL: ci@example.com
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      SECURE_SSL_REDIRECT: "False"
+      AI_PROVIDER: anthropic
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Installer les dépendances de production
+        run: pip install -r requirements.txt
+        working-directory: backend
+
+      # Le contrôle de déploiement de Django : cookies, HSTS, DEBUG, hôtes.
+      - name: Contrôle de déploiement
+        run: python manage.py check --deploy --fail-level WARNING
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://mfp:mfp@localhost:5432/mfp
+          REDIS_URL: redis://localhost:6379/0
+          # Sa vraie valeur de production. Le conteneur démarré plus bas la
+          # désactive pour que `curl` puisse l'atteindre en HTTP — mais le
+          # contrôle, lui, doit porter sur ce qui sera réellement déployé.
+          SECURE_SSL_REDIRECT: "True"
+
+      - name: Construire les images
+        run: |
+          docker build --target production -t mfp-backend:ci backend
+          docker build --target production \
+            --build-arg VITE_API_BASE_URL=https://api.example.com/api/v1 \
+            -t mfp-frontend:ci frontend
+
+      # Le cœur de ce job. Ces deux appels sont ce qui exerce enfin la surface
+      # de déploiement : ni `pytest`, ni `check --deploy` ne diraient qu'un
+      # manifeste statique manque.
+      - name: Démarrer le backend de production
+        run: |
+          docker run -d --name backend --network host \
+            -e DJANGO_SECRET_KEY -e DJANGO_ALLOWED_HOSTS \
+            -e CORS_ALLOWED_ORIGINS -e CSRF_TRUSTED_ORIGINS \
+            -e FRONTEND_URL -e BACKEND_URL -e DEFAULT_FROM_EMAIL \
+            -e EMAIL_BACKEND -e SECURE_SSL_REDIRECT -e AI_PROVIDER \
+            -e DATABASE_URL=postgres://mfp:mfp@localhost:5432/mfp \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            mfp-backend:ci
+
+          docker exec backend python manage.py migrate --noinput
+
+          for attempt in $(seq 1 20); do
+            if curl -sf http://localhost:8000/health/ > /dev/null; then
+              echo "Backend prêt après ${attempt} tentative(s)."
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Le healthcheck répond
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health/)
+          test "$code" = "200" || { docker logs backend; echo "health=$code"; exit 1; }
+
+      # C'est cette étape, et elle seule, qui prouve que `collectstatic` a
+      # tourné : sans manifeste, whitenoise ne casse ni au démarrage ni sur
+      # `/health/`, mais à l'ouverture de la première page d'admin.
+      - name: Une page d'admin se charge
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin/login/)
+          test "$code" = "200" || { docker logs backend; echo "admin=$code"; exit 1; }
+
+      - name: L'image de production ne contient pas les outils de test
+        run: |
+          if docker run --rm mfp-backend:ci pip show pytest > /dev/null 2>&1; then
+            echo "pytest est présent dans l'image de production." >&2
+            exit 1
+          fi
+
+      - name: Le frontend sert son repli SPA
+        run: |
+          docker run -d --name frontend -p 8080:8080 mfp-frontend:ci
+
+          for attempt in $(seq 1 20); do
+            if curl -sf http://localhost:8080/ > /dev/null; then break; fi
+            sleep 2
+          done
+
+          # Une route profonde doit rendre l'application, pas un 404 : le
+          # routage vit dans le navigateur.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/journal)
+          test "$code" = "200" || { docker logs frontend; echo "spa=$code"; exit 1; }
+
+          curl -s http://localhost:8080/journal | grep -q 'id="root"' \
+            || { echo "Le repli SPA ne rend pas l'application." >&2; exit 1; }
+
