@@ -758,7 +758,46 @@ POST /notifications/read-all/
 
 GET   /notification-preferences/
 PATCH /notification-preferences/
+
+GET|POST         /reminders/
+GET|PATCH|DELETE /reminders/{id}/
 ```
+
+Les routes de rappels **s'ajoutent à cette spec** : la spec 03 §11 donne le
+modèle et la spec 01 §24 le comportement, mais aucune ne prévoyait de moyen de
+les régler.
+
+`GET /notifications/` porte son compteur `unread` à côté de la page : un entier
+ne mérite pas sa propre requête, et l'interface en a besoin pour sa pastille.
+`reminder` et `scheduled_on` n'en sortent pas — ce sont les rouages de
+l'idempotence, pas une information pour le lecteur.
+
+`GET /notification-preferences/` rend **les six types**, défauts compris, même
+sans aucune ligne en base. Une préférence absente n'est pas une préférence : si
+chaque appelant décidait du défaut, la réponse dépendrait de qui pose la
+question. `PATCH` accepte une liste partielle sous `results`.
+
+Les rappels ne partent **pas par email** par défaut : un « pense à journaliser
+ton déjeuner » quotidien devient du bruit qu'on filtre, et une boîte filtrée ne
+rappelle plus rien. Les événements sociaux, rares, y ont droit.
+
+`push_enabled` est rendu mais toujours faux : la colonne existe (spec 03 §11),
+aucun canal ne la lit encore, et l'interface affiche la case désactivée plutôt
+qu'une case sans effet.
+
+`POST /reminders/` sur un type déjà réglé **met à jour** plutôt que d'échouer
+sur la contrainte d'unicité : « un seul rappel par type » se règle, il ne se
+refuse pas. `days_of_week` porte des entiers de 0 (lundi) à 6, convention
+Python comme les surcharges d'objectifs ; une liste vide est refusée — un
+rappel qui ne part jamais se désactive, il ne se vide pas.
+
+Un rappel dû ne produit **qu'une notification par journée**, garantie par une
+contrainte d'unicité sur `(reminder, scheduled_on)` plutôt que par un verrou de
+cache : la notification est la preuve qu'il est parti. Au-delà d'une fenêtre de
+rattrapage d'une heure, un rappel manqué est **sauté et journalisé** — « pense à
+te peser ce matin » à midi n'est plus un rappel.
+
+`GET /dashboard/` porte désormais `unread_notifications` (spec 04 §16).
 
 ## 20. Account
 

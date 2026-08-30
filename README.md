@@ -31,6 +31,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Photos de progression](#photos-de-progression)
 - [Recettes et repas enregistrés](#recettes-et-repas-enregistrés)
 - [Amis et partage](#amis-et-partage)
+- [Notifications et rappels](#notifications-et-rappels)
 - [Comptes de démonstration](#comptes-de-démonstration)
 - [Liste de courses](#liste-de-courses)
 - [Scanner un repas et le socle IA](#scanner-un-repas-et-le-socle-ia)
@@ -545,7 +546,8 @@ date.
 
 Le jeu de widgets est fixe — calories, macros, repas, poids, raccourcis. `dashboard_config` existe
 en base si la personnalisation vient plus tard. Le bloc « notifications importantes » de la
-spec 04 §16 n'est pas renvoyé : le modèle `Notification` n'existe pas encore, et une absence vaut
+spec 04 §16 est désormais renvoyé sous la forme d'un compteur de non-lues ; la personnalisation
+des widgets, elle, attend toujours, et une absence vaut
 mieux qu'un champ simulé.
 
 Chaque widget reste juste quand la donnée manque : pas d'objectif, aucune pesée, aucun poids
@@ -814,9 +816,8 @@ amis ? » n'aurait pas de réponse unique.
 
 Une demande émise vers quelqu'un qui vous a déjà invité vaut acceptation.
 
-Une demande d'ami n'émet aucune notification : le modèle `Notification` (spec 01 §24) n'existe
-pas encore. L'entrée « Amis » de la barre latérale porte une pastille tant que des demandes
-attendent.
+Une demande d'ami émet désormais une notification, chez le destinataire à l'envoi et chez le
+demandeur à l'acceptation. L'entrée « Amis » garde sa pastille : c'est là qu'on répond.
 
 ### Une liste de courses porte un identifiant
 
@@ -866,6 +867,65 @@ Une douzaine de journées sont laissées **volontairement vides** et dispersées
 des moyennes sur les journées tenues resterait une affirmation du README au lieu de se voir à
 l'écran. Le tirage a une graine fixe : deux exécutions donnent le même jeu, sans quoi un défaut
 observé une fois ne se reproduirait pas.
+
+## Notifications et rappels
+
+Trois rappels réglables — repas, pesée, planification — avec leur heure et leurs jours, et trois
+événements sociaux qui ne produisaient jusqu'ici que du silence : demande d'ami reçue, acceptée,
+partage reçu (spec 01 §24).
+
+Celery beat balaye les rappels toutes les cinq minutes : la tâche demande « qu'est-ce qui était
+dû ? » plutôt que de programmer un envoi par rappel, qui se perdrait au redémarrage. Un rappel part
+donc au plus cinq minutes après son heure — c'est écrit et assumé plutôt que subi.
+
+### Les deux silences d'un rappel
+
+Un rappel a deux façons d'échouer, et **aucune ne lève d'exception** :
+
+> **Un rappel qui part deux fois est aussi faux qu'un rappel qui ne part pas.**
+
+Partir deux fois n'écrit rien : l'utilisateur reçoit deux fois la même chose et se désabonne. Ne
+pas partir n'écrit rien non plus, et rien ne distingue « aucun rappel n'était dû » de « le rappel a
+été manqué ». C'est le genre de défaut qui vit des mois.
+
+### La preuve qu'un rappel est parti, c'est la notification
+
+La tentation était le verrou de cache — le projet en a déjà un, dans
+[`nutrition/tasks.py`](backend/nutrition/tasks.py), où il protège de la concurrence et c'est tout
+ce qu'on lui demande. Ici il n'aurait pas suffi : il expire, disparaît au redémarrage de Redis, et
+n'est la source de vérité de rien. Un worker relancé après une panne rejouerait la journée entière.
+
+L'idempotence vit donc en base, sous la forme employée partout ailleurs dans le projet — une
+contrainte d'unicité partielle sur `(reminder, scheduled_on)`. La notification **est** la preuve,
+et il n'y a rien à synchroniser entre deux systèmes. Le contrôle qui tranche, sur la vraie base :
+trois passages consécutifs du balayage, **une** notification.
+
+### Un rappel manqué ne se rattrape pas indéfiniment
+
+L'autre versant. Si le worker est resté couché trois heures, le rappel de 8 h ne doit pas partir à
+11 h : « pense à te peser ce matin » à midi n'est plus un rappel, c'est du bruit. Au-delà d'une
+heure, il est **sauté et journalisé** — ni envoyé en retard, ni oublié en silence.
+
+### Une préférence absente n'est pas une préférence
+
+`NotificationPreference` est unique par `(user, event_type)` : un compte qui n'a jamais ouvert ses
+réglages n'a **aucune ligne**. Si chaque appelant décidait lui-même du défaut, la réponse à « le
+canal email est-il actif ? » dépendrait de l'endroit où on pose la question.
+
+Les défauts vivent donc dans une seule table, dans
+[`services/dispatch.py`](backend/notifications/services/dispatch.py), lue par un unique
+`preferences_for()` qui comble les trous et rend toujours les six types.
+
+Les rappels ne partent **pas** par email : un « pense à journaliser ton déjeuner » quotidien
+devient vite du bruit qu'on filtre, et une boîte filtrée ne rappelle plus rien. Les événements
+sociaux, rares, y ont droit. Tout se change par type et par canal.
+
+### Le push existe en base, pas encore à l'écran
+
+`push_enabled` est dans le modèle parce que la spec 03 §11 le prévoit, mais **aucun canal ne le
+lit** : la PWA est construite en `generateSW`, sans service worker éditable où brancher un listener
+`push`. L'interface affiche donc la case **désactivée**, avec sa raison — une case qui ne fait rien
+serait pire qu'une case grisée.
 
 ## Liste de courses
 
