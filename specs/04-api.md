@@ -19,7 +19,27 @@ POST /auth/forgot-password/
 POST /auth/reset-password/
 POST /auth/logout-all/
 GET  /auth/me/
+GET  /auth/csrf/
 ```
+
+`GET /auth/csrf/` pose le cookie CSRF **et rend le jeton** dans son corps,
+sous `csrf_token`. Les deux, parce que le cookie seul ne suffit pas dès que
+l'interface vit sur un autre domaine que l'API : `document.cookie` ne donne
+accès qu'aux cookies du domaine courant. Le navigateur envoie bien celui de
+l'API à chaque requête — le serveur le lit —, mais le JavaScript ne peut pas
+le recopier dans l'en-tête `X-CSRFToken`. Rien ne le montre en développement,
+où l'interface et l'API partagent l'hôte `localhost`.
+
+Rendre le jeton au client n'affaiblit rien : c'est lui qui doit le renvoyer. Ce
+que la protection exige, c'est qu'un **autre site** ne puisse pas l'obtenir —
+garanti par CORS, cette réponse n'étant lisible que depuis les origines
+autorisées.
+
+Un échec de vérification répond 403 avec le code `csrf_failed`, distinct de
+`permission_denied`. Le client rejoue alors **une** fois avec un jeton neuf :
+un cookie effacé ailleurs rendrait sinon toute écriture impossible jusqu'au
+rechargement de la page, tandis qu'un vrai refus d'accès ne doit jamais être
+rejoué.
 
 ## 2. Profil
 
