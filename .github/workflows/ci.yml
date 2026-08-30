@@ -321,9 +321,7 @@ jobs:
       - name: Construire les images
         run: |
           docker build --target production -t mfp-backend:ci backend
-          docker build --target production \
-            --build-arg VITE_API_BASE_URL=https://api.example.com/api/v1 \
-            -t mfp-frontend:ci frontend
+          docker build --target production -t mfp-frontend:ci frontend
 
       # Le cœur de ce job. Ces deux appels sont ce qui exerce enfin la surface
       # de déploiement : ni `pytest`, ni `check --deploy` ne diraient qu'un
@@ -407,9 +405,33 @@ jobs:
             exit 1
           fi
 
+      # Le relais est ce qui met l'API sous la même origine que l'application.
+      # Sans lui, les deux vivent sur deux sous-domaines d'un suffixe public,
+      # donc sur deux *sites* : le cookie de session y devient un cookie tiers,
+      # que Safari bloque sans condition. Rien d'autre dans cette CI ne
+      # l'exerce — ni les tests unitaires, ni `vite preview`.
+      - name: Le relais met l'API sous la même origine
+        run: |
+          docker run -d --name relais --network host \
+            -e PORT=8081 \
+            -e BACKEND_ORIGIN=http://localhost:8000 \
+            mfp-frontend:ci
+
+          for attempt in $(seq 1 20); do
+            curl -sf http://localhost:8081/ > /dev/null && break
+            sleep 2
+          done
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/api/v1/health/)
+          docker logs relais 2>&1 | tail -20
+          docker rm -f relais > /dev/null
+          test "$code" = "200" || { echo "relais=$code" >&2; exit 1; }
+
       - name: Le frontend sert son repli SPA
         run: |
-          docker run -d --name frontend -p 8080:8080 mfp-frontend:ci
+          docker run -d --name frontend --network host \
+            -e PORT=8080 -e BACKEND_ORIGIN=http://localhost:8000 \
+            mfp-frontend:ci
 
           for attempt in $(seq 1 20); do
             if curl -sf http://localhost:8080/ > /dev/null; then break; fi
