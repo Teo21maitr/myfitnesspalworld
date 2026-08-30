@@ -11,6 +11,11 @@ from diary.urls import (
     meal_type_patterns,
     report_patterns,
 )
+from notifications.urls import (
+    notification_patterns,
+    notification_preference_patterns,
+    reminder_patterns,
+)
 from nutrition.urls import barcode_patterns, food_patterns, nutrition_profile_patterns
 from planning.urls import meal_plan_patterns, shopping_list_patterns
 from progress.urls import progress_patterns
@@ -52,6 +57,12 @@ urlpatterns = [
     path("friend-requests/", include((friend_request_patterns, "friend-requests"))),
     path("shares/", include((share_patterns, "shares"))),
     path("shared/", include((shared_patterns, "shared"))),
+    path("notifications/", include((notification_patterns, "notifications"))),
+    path(
+        "notification-preferences/",
+        include((notification_preference_patterns, "notification-preferences")),
+    ),
+    path("reminders/", include((reminder_patterns, "reminders"))),
     path("ai/", include((ai_patterns, "ai"))),
     # Suivi générique des traitements longs : l'IA aujourd'hui, les
     # rapports lourds demain (spec 04 §9).
