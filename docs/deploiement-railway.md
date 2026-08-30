@@ -90,7 +90,7 @@ BACKEND_URL=https://exemple.invalid
 CORS_ALLOWED_ORIGINS=https://exemple.invalid
 CSRF_TRUSTED_ORIGINS=https://exemple.invalid
 
-# Emails. Adapte à ton fournisseur.
+# Emails. **Pas Gmail, pas de SMTP grand public** — voir la remarque plus bas.
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=<smtp de ton fournisseur>
 EMAIL_PORT=587
@@ -119,6 +119,19 @@ indéfiniment. Les autres variables, elles, peuvent parfaitement être partagée
 **Une variable modifiée ne prend effet qu'au redémarrage du service.** Elle est
 injectée au démarrage du conteneur ; celui qui tourne déjà garde les anciennes.
 `railway restart --service <nom>` suffit, sans reconstruction.
+
+**Railway bloque le SMTP sortant.** Les ports 25, 465 et 587 n'aboutissent
+pas depuis un conteneur — la plateforme les ferme contre le spam. Gmail,
+Outlook et tout fournisseur qui ne parle que SMTP sont donc **inutilisables
+ici**, et l'échec ne ressemble pas à un refus : la connexion pend jusqu'à ce
+que gunicorn tue le worker. Il faut un fournisseur qui expose une **API HTTP**
+— Resend, Postmark, Mailgun, Brevo, SendGrid. Vérifie avant de configurer :
+
+```bash
+railway ssh --service Backend -- python -c "import socket; socket.create_connection(('smtp.gmail.com', 587), timeout=8)"
+```
+
+Une erreur au bout de huit secondes confirme le blocage.
 
 **Ne définis pas `PORT`.** Railway l'injecte, et l'image l'utilise.
 
@@ -443,9 +456,12 @@ La liste est embarquée dans les navigateurs ; en sortir prend des mois.
 | `/health/` vert mais l'admin en 500 | Les fichiers statiques manquent. L'image les construit : vérifie que le build a bien utilisé l'étage `production` |
 | Erreur CORS dans le navigateur | `CORS_ALLOWED_ORIGINS` ne correspond pas exactement à l'origine du frontend, protocole compris |
 | 403 CSRF à la connexion | `CSRF_TRUSTED_ORIGINS` incomplet, ou cookies bloqués : vérifie `AUTH_COOKIE_SAMESITE=None` sur deux domaines distincts |
+| 403 « CSRF cookie not set » alors qu'on est connecté | Le cookie CSRF n'a pas la portée du cookie d'authentification. Il la suit désormais automatiquement ; `curl -sI <backend>/api/v1/auth/csrf/` doit montrer `SameSite=None` |
 | Le frontend appelle `localhost` | `VITE_API_BASE_URL` posée après la construction. Reconstruis |
 | La construction du frontend échoue | `VITE_API_BASE_URL` absente. C'est la garde qui parle, et elle a raison |
-| Aucun email n'arrive | Le backend refuse de démarrer avec un backend email muet ; s'il démarre, le problème est chez le fournisseur SMTP |
+| Aucun email n'arrive, aucune ligne dans `EmailLog` | L'envoi n'a pas été tenté ou a été interrompu. Cherche `WORKER TIMEOUT` dans les journaux : la plateforme bloque le SMTP sortant, et la connexion pend |
+| `WORKER TIMEOUT` sur une action d'administration | Un envoi d'email synchrone vers un SMTP injoignable. `EMAIL_TIMEOUT` le borne désormais, mais le fournisseur reste à changer |
+| Aucun email n'arrive, `EmailLog` dit `FAILED` | Le problème est chez le fournisseur : identifiants, domaine non vérifié, quota |
 | Les rappels ne partent pas | Le service `celery-beat` ne tourne pas, ou tourne en plusieurs exemplaires |
 | 404 sur une route rechargée | Le repli SPA de nginx : le frontend n'a pas été construit avec son étage `production` |
 
