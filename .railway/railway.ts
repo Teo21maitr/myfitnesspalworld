@@ -30,18 +30,20 @@ const SHARED = [
   'DJANGO_SECRET_KEY',
   'DJANGO_SETTINGS_MODULE',
   'EMAIL_BACKEND',
-  'EMAIL_HOST',
-  'EMAIL_HOST_PASSWORD',
-  'EMAIL_HOST_USER',
-  'EMAIL_PORT',
-  'EMAIL_USE_TLS',
   'FRONTEND_URL',
   'OFF_CONTACT_EMAIL',
+  // Les trois services backend en ont besoin : le garde-fou de démarrage
+  // refuse un backend d'API sans sa clé, et le worker envoie autant d'emails
+  // que la vue qui l'appelle. Les réglages SMTP, eux, ont disparu — la
+  // plateforme ferme ces ports, l'envoi passe par une API HTTP.
+  'RESEND_API_KEY',
 ] as const
 
 export default defineRailway((ctx) => {
+  // `checkSuites` : attendre les vérifications GitHub avant de déployer `main`
+  // (spec 08 §6). Sans cela, un push rouge part en production.
   const backendSource = github('Teo21maitr/myfitnesspalworld', {
-    checkSuites: false,
+    checkSuites: true,
     rootDirectory: '/backend',
   })
 
@@ -125,12 +127,18 @@ export default defineRailway((ctx) => {
    */
   const frontend = service('myfitnesspalworld', {
     source: github('Teo21maitr/myfitnesspalworld', {
-      checkSuites: false,
+      checkSuites: true,
       rootDirectory: '/frontend',
     }),
     replicas: { 'us-west2': 1 },
     networking: { privateNetworkEndpoint: 'myfitnesspalworld-2253' },
-    env: { VITE_API_BASE_URL: preserve() },
+    env: {
+      VITE_API_BASE_URL: preserve(),
+      // Cible du relais `/api/`, qui met l'API sous la même origine que
+      // l'application. Déclarée ici pour qu'un `apply` ne la supprime pas :
+      // sans elle, nginx ne démarre pas.
+      BACKEND_ORIGIN: preserve(),
+    },
   })
 
   return project('intelligent-adaptation', {
