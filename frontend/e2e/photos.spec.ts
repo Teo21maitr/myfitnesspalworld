@@ -15,6 +15,10 @@ import { acceptRegistrationRequest, cleanupUser, resetThrottleCounters, signUp }
 const USERNAME = 'e2e-photos'
 const PASSWORD = 'un-mot-de-passe-e2e-1'
 
+/** Les deux adresses du stockage, telles que `playwright.config.ts` les pose. */
+const INTERNAL_ENDPOINT = process.env.E2E_S3_ENDPOINT_URL ?? 'http://127.0.0.1:9002'
+const PUBLIC_ENDPOINT = process.env.E2E_S3_PUBLIC_ENDPOINT_URL ?? 'http://localhost:9002'
+
 /** Un vrai JPEG minuscule : le serveur le rouvre pour le réencoder. */
 const PHOTO = {
   name: 'progression.jpg',
@@ -96,7 +100,12 @@ test('photos de progression : envoi, relecture et suppression', async ({ page })
     // Et elle porte l'adresse que **le navigateur** peut joindre, non celle du
     // réseau privé du backend : la configuration du parcours les distingue
     // exprès, parce que sous Docker elles diffèrent.
-    expect(source).toContain('localhost:9002')
+    //
+    // L'attendu se lit dans la même variable que la configuration, jamais en
+    // dur : un port codé ici passerait par coïncidence tant qu'il coïncide, et
+    // mentirait le jour où il change.
+    expect(source).toContain(new URL(PUBLIC_ENDPOINT).host)
+    expect(source).not.toContain(new URL(INTERNAL_ENDPOINT).host)
 
     // Et elle affiche vraiment quelque chose : le seau a rendu les octets.
     await expect

@@ -134,6 +134,14 @@ jobs:
       E2E_PYTHON: python
       E2E_DATABASE_URL: postgres://mfp:mfp@localhost:5432/mfp
       E2E_REDIS_URL: redis://localhost:6379/5
+      # Le stockage objet des photos de progression. Les deux adresses sont
+      # **volontairement différentes** : le backend signe pour la seconde, que
+      # le navigateur doit pouvoir joindre. Les faire coïncider masquerait un
+      # défaut d'adresse, comme cela s'est déjà produit.
+      E2E_S3_ENDPOINT_URL: http://127.0.0.1:9002
+      E2E_S3_PUBLIC_ENDPOINT_URL: http://localhost:9002
+      E2E_S3_BUCKET_NAME: mfp-photos
+      MINIO_IMAGE: minio/minio:RELEASE.2025-04-22T22-12-26Z
 
     steps:
       - uses: actions/checkout@v7
@@ -150,8 +158,59 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # MinIO démarre dans une étape et non en `services` : un conteneur de
+      # service ne reçoit pas d'arguments de commande, et l'image officielle en
+      # exige un. Même image épinglée qu'en local, pour que la CI éprouve ce
+      # que le poste de développement éprouve.
+      - name: Démarrer le stockage objet
+        run: |
+          docker run -d --name minio -p 9002:9000 \
+            -e MINIO_ROOT_USER=mfp-local \
+            -e MINIO_ROOT_PASSWORD=mfp-local-secret \
+            "$MINIO_IMAGE" server /data
+
+          for attempt in $(seq 1 30); do
+            if curl -sf http://localhost:9002/minio/health/live > /dev/null; then
+              echo "MinIO prêt après ${attempt} tentative(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "MinIO n'a pas démarré." >&2
+          docker logs minio >&2
+          exit 1
+
       - name: Installer les dépendances backend
         run: pip install -r requirements-dev.txt
+        working-directory: backend
+
+      # Le seau est créé par boto3 plutôt que par le client `mc` : c'est le
+      # client que l'application utilise, il est déjà installé, et cela évite
+      # une seconde image dont le réseau se configure autrement selon l'hôte.
+      - name: Créer le seau
+        run: |
+          python - <<'PYTHON'
+          import os
+
+          import boto3
+          from botocore.exceptions import ClientError
+
+          client = boto3.client(
+              "s3",
+              endpoint_url=os.environ["E2E_S3_ENDPOINT_URL"],
+              aws_access_key_id="mfp-local",
+              aws_secret_access_key="mfp-local-secret",
+              region_name="us-east-1",
+          )
+          bucket = os.environ["E2E_S3_BUCKET_NAME"]
+          try:
+              client.create_bucket(Bucket=bucket)
+          except ClientError as error:
+              if error.response["Error"]["Code"] not in {"BucketAlreadyOwnedByYou", "BucketAlreadyExists"}:
+                  raise
+          print(f"Seau {bucket} prêt.")
+          PYTHON
         working-directory: backend
 
       - name: Installer les dépendances frontend
