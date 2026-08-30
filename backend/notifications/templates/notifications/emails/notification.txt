@@ -1,0 +1,12 @@
+Bonjour {{ first_name|default:username }},
+
+{{ title }}
+
+{{ message }}
+
+{{ app_url }}
+
+Vous recevez cet email parce que ce type de notification est activé dans vos
+préférences. Vous pouvez le désactiver à tout moment.
+
+L'équipe MyFitnessPalworld

@@ -251,6 +251,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "common.tasks.purge_expired_tasks",
         "schedule": crontab(hour=4, minute=0),
     },
+    # Balayage des rappels : la tâche demande « qu'est-ce qui était dû ? »
+    # plutôt que de programmer un envoi par rappel, qui se perdrait au
+    # redémarrage. Un rappel part donc au plus cinq minutes après son heure —
+    # c'est écrit et assumé plutôt que subi (spec 01 §24).
+    "send-due-reminders": {
+        "task": "notifications.tasks.send_due_reminders",
+        "schedule": crontab(minute="*/5"),
+    },
 }
 
 CACHES = {

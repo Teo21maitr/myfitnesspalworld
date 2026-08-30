@@ -119,3 +119,26 @@ def send_password_reset_email(user, reset_url: str) -> EmailLog | None:
         },
         user=user,
     )
+
+
+def send_notification_email(user, *, title: str, message: str) -> EmailLog | None:
+    """Relais email d'une notification interne (spec 01 §24).
+
+    Le corps ne recopie que le titre et le message déjà rendus à l'écran : un
+    email n'en dit jamais plus que l'application, faute de quoi il deviendrait
+    lui-même une fuite.
+    """
+    return _send(
+        email_type=EmailType.NOTIFICATION,
+        recipient=user.email,
+        subject=title,
+        template="notification",
+        context={
+            "first_name": user.first_name,
+            "username": user.username,
+            "title": title,
+            "message": message,
+            "app_url": settings.FRONTEND_URL,
+        },
+        user=user,
+    )
