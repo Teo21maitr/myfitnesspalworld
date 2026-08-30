@@ -40,6 +40,7 @@ spécifications qui fait foi pour toutes les règles métier.
 - [Une seule navigation](#une-seule-navigation)
 - [Analyse et rapports](#analyse-et-rapports)
 - [Tests, lint et typecheck](#tests-lint-et-typecheck)
+- [Mise en production](#mise-en-production)
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du dépôt](#structure-du-dépôt)
 - [Conventions](#conventions)
@@ -1326,6 +1327,112 @@ route de test n'est exposée par l'application.
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) exécute l'ensemble sur `develop`, `main` et
 sur chaque pull request.
+
+## Mise en production
+
+L'application se déploie sur Railway depuis la branche `main` (spec 09). Le dépôt porte tout ce qui
+peut l'être ; ce qui suit décrit le reste.
+
+### Ce que je ne peux pas faire
+
+Trois choses restent à toi, et aucune clé ne passe par moi : **créer le projet Railway**, **saisir
+les secrets**, **configurer le DNS**. Le dépôt ne contient aucune valeur réelle, et n'en contiendra
+jamais.
+
+### Quatre services, une seule image par côté
+
+| Service | Racine | Commande de démarrage |
+| --- | --- | --- |
+| `backend` | `/backend` | celle de `railway.json` (gunicorn sur `$PORT`) |
+| `celery-worker` | `/backend` | `celery -A config worker -l info` |
+| `celery-beat` | `/backend` | `celery -A config beat -l info` |
+| `frontend` | `/frontend` | celle de l'image (nginx sur `$PORT`) |
+
+`backend/railway.json` et `frontend/railway.json` déclarent le constructeur, le healthcheck
+`/health/` et le pré-déploiement `migrate`. Les deux services Celery partagent la racine `/backend`
+et ne diffèrent que par leur commande, qui se pose dans l'interface — Railway ne lit qu'un
+`railway.json` par racine.
+
+Seuls `backend` et `frontend` reçoivent un domaine public.
+
+### Variables obligatoires
+
+Le backend **refuse de démarrer** sans elles. C'est délibéré :
+
+```text
+DJANGO_SETTINGS_MODULE=config.settings.production
+DJANGO_SECRET_KEY=          DJANGO_ALLOWED_HOSTS=
+DATABASE_URL=               REDIS_URL=
+CORS_ALLOWED_ORIGINS=       CSRF_TRUSTED_ORIGINS=
+FRONTEND_URL=               BACKEND_URL=
+DEFAULT_FROM_EMAIL=         EMAIL_BACKEND=
+```
+
+Le frontend n'en a qu'une, et elle se donne **à la construction** :
+
+```text
+VITE_API_BASE_URL=https://api.exemple.com/api/v1
+```
+
+Facultatives : `ANTHROPIC_API_KEY` et les modèles (sans elles l'IA répond 503), les cinq `S3_*`
+(sans elles l'envoi d'une photo répond 503), et les réglages SMTP de l'hébergeur d'emails.
+
+### Une absence ne doit pas ressembler à une présence
+
+C'est la règle qui gouverne cette section, et elle a coûté quelques garde-fous.
+
+Quatre variables oubliées produisaient jusqu'ici un comportement **plausible** plutôt qu'une
+erreur :
+
+| Oubli | Ce qui se passait | Ce qui se voyait |
+| --- | --- | --- |
+| `FRONTEND_URL` | Lien de réinitialisation vers `localhost` | Un email part, `EmailLog` dit « SENT » |
+| `EMAIL_BACKEND` | Emails écrits dans `stdout` | `EmailLog` dit « SENT » |
+| `VITE_API_BASE_URL` | Bundle appelant `localhost:8001` | La construction **réussit** |
+| `DJANGO_SETTINGS_MODULE` | Réglages de développement | `DEBUG=True`, cookies non `Secure` |
+
+Les trois premières font désormais échouer le démarrage ou la construction, avec un message qui dit
+**pourquoi** — un refus muet ferait perdre autant de temps que le défaut qu'il évite. La quatrième
+est traitée dans l'autre sens : l'image de production pose elle-même
+`DJANGO_SETTINGS_MODULE=config.settings.production`, si bien qu'un oubli donne la production et
+jamais le développement. C'est le sens sûr de l'erreur.
+
+### Une garde que rien n'exerce est une garde cassée
+
+`production.py` était importé par deux tests, mais **la surface de déploiement n'avait jamais
+tourné nulle part**. Le cas net : `CompressedManifestStaticFilesStorage` ne casse ni au démarrage,
+ni sur `/health/` — il casse à l'ouverture de la première page d'admin.
+
+Vérifié en retirant `collectstatic` de l'image :
+
+```text
+health : 200   <- reste vert, la plateforme aurait déployé
+admin  : 500   <- c'est lui qui tombe
+```
+
+Le job `deploy` de la CI construit donc les deux images, **démarre** celle du backend contre
+PostgreSQL et Redis, et lui demande `/health/` **puis une page d'admin**. Il vérifie aussi que le
+frontend rend son application sur une route profonde, et que l'image de production ne contient ni
+pytest ni ruff.
+
+`collectstatic` s'exécute **à la construction** de l'image, pas au pré-déploiement : confié à une
+étape séparée, il s'oublie.
+
+### Après le premier déploiement
+
+Dans l'interface Railway : activer **Wait for CI** sur `main`, brancher les domaines puis ajuster
+`FRONTEND_URL`, `BACKEND_URL`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` et `CSRF_TRUSTED_ORIGINS`,
+activer les **sauvegardes** PostgreSQL et en éprouver une restauration.
+
+Puis, une fois seulement :
+
+```bash
+python manage.py createsuperuser
+python manage.py import_ciqual <archive>
+```
+
+Le préchargement HSTS reste **désactivé** : la liste est embarquée dans les navigateurs et en sortir
+prend des mois. Il se décide une fois le domaine stabilisé, en posant `SECURE_HSTS_PRELOAD=True`.
 
 ## Variables d'environnement
 

@@ -437,6 +437,29 @@ Les migrations destructives rendent les rollbacks plus dangereux : les éviter.
 - [ ] test suppression fichiers temporaires
 - [ ] test restauration backup
 
+## 22. Ce que le dépôt déclare
+
+Ajouté à l'étape 19, pour que le déploiement ne repose pas seulement sur des réglages saisis dans
+une interface :
+
+- `backend/railway.json` et `frontend/railway.json` — constructeur, healthcheck `/health/` et
+  pré-déploiement `migrate`. Les deux services Celery partagent la racine `/backend` : Railway ne
+  lit qu'un fichier par racine, leurs commandes se posent dans l'interface.
+- `backend/Dockerfile` en trois étages. `production` n'installe **pas** `requirements-dev.txt`, pose
+  `DJANGO_SETTINGS_MODULE=config.settings.production` — un oubli donne alors la production, jamais
+  le développement — et exécute `collectstatic` **à la construction** plutôt qu'au pré-déploiement,
+  qui s'oublie.
+- `frontend/Dockerfile` et `frontend/nginx.conf.template` — le bundle est servi par nginx, avec
+  repli SPA vers `index.html`. `VITE_API_BASE_URL` est un argument de construction : elle est figée
+  dans le bundle, et `vite.config.ts` refuse de construire sans elle.
+- Un job `deploy` dans la CI : `check --deploy` en `--fail-level WARNING`, construction des deux
+  images, **démarrage réel** du backend, puis `/health/` et une page d'admin. Seule la seconde
+  prouve que le manifeste statique existe.
+
+`production.py` refuse par ailleurs de démarrer sans `FRONTEND_URL`, `BACKEND_URL`,
+`DEFAULT_FROM_EMAIL`, ni avec un `EMAIL_BACKEND` qui ne remet rien à personne : leurs valeurs de
+développement produisent un comportement plausible plutôt qu'une erreur.
+
 ## 21. Sources officielles utiles
 
 Railway :
