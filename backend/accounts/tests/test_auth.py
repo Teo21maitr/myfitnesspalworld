@@ -146,6 +146,19 @@ def test_csrf_endpoint_seme_le_cookie(api_client):
     assert settings.CSRF_COOKIE_NAME in response.cookies
 
 
+def test_csrf_endpoint_rend_aussi_le_jeton(api_client):
+    """Le cookie ne suffit pas quand le frontend est sur un autre domaine.
+
+    `document.cookie` ne donne accès qu'aux cookies du domaine courant : le
+    navigateur envoie bien celui de l'API, mais le JavaScript ne peut pas le
+    lire pour le recopier dans l'en-tête. Le jeton doit donc voyager dans le
+    corps de la réponse.
+    """
+    response = api_client.get(CSRF_URL)
+
+    assert response.json()["csrf_token"]
+
+
 # --- CSRF --------------------------------------------------------------------
 
 
@@ -160,6 +173,9 @@ def test_ecriture_par_cookie_sans_entete_csrf_est_refusee(user):
 
     assert response.status_code == 403
     assert "CSRF" in response.json()["message"]
+    # Code propre : le frontend rejoue avec un jeton neuf sur celui-ci, et
+    # jamais sur un vrai refus d'accès, qu'aucun rejeu ne réparerait.
+    assert response.json()["code"] == "csrf_failed"
 
 
 def test_ecriture_par_cookie_avec_entete_csrf_est_acceptee(user):
@@ -170,6 +186,24 @@ def test_ecriture_par_cookie_avec_entete_csrf_est_acceptee(user):
     client.post(LOGIN_URL, {"username": "Teo", "password": PASSWORD})
 
     csrf_token = client.cookies[settings.CSRF_COOKIE_NAME].value
+    response = client.post(LOGOUT_URL, HTTP_X_CSRFTOKEN=csrf_token)
+
+    assert response.status_code == 204
+
+
+def test_le_jeton_rendu_par_le_corps_autorise_une_ecriture(user):
+    """Le chemin réel du frontend en production : jamais le cookie, le corps.
+
+    Les tests voisins lisent `client.cookies[...]`, ce qu'un navigateur ne peut
+    pas faire vers un autre domaine. Celui-ci n'emploie que ce que le frontend
+    reçoit vraiment.
+    """
+    from rest_framework.test import APIClient
+
+    client = APIClient(enforce_csrf_checks=True)
+    csrf_token = client.get(CSRF_URL).json()["csrf_token"]
+    client.post(LOGIN_URL, {"username": "Teo", "password": PASSWORD})
+
     response = client.post(LOGOUT_URL, HTTP_X_CSRFTOKEN=csrf_token)
 
     assert response.status_code == 204

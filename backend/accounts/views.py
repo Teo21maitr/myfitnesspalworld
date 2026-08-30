@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
+from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -221,13 +222,27 @@ class MeView(APIView):
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class CsrfView(APIView):
-    """`GET /auth/csrf/` — pose le cookie CSRF avant la première écriture."""
+    """`GET /auth/csrf/` — pose le cookie CSRF et **rend le jeton**.
+
+    Le cookie ne suffit pas quand le frontend vit sur un autre domaine que
+    l'API : `document.cookie` ne donne accès qu'aux cookies du domaine
+    courant. Le navigateur envoie bien celui de l'API à chaque requête, mais le
+    JavaScript ne peut pas le lire pour le recopier dans l'en-tête
+    `X-CSRFToken` — d'où un « CSRF token missing » que rien ne laisse prévoir
+    en local, où frontend et API partagent l'hôte `localhost`.
+
+    Le jeton voyage donc aussi dans le corps de la réponse. Ce n'est pas un
+    secret à protéger du client : c'est précisément **lui** qui doit le
+    renvoyer. Ce qu'il protège, c'est qu'un autre site ne puisse pas
+    l'obtenir — ce que la politique d'origine croisée garantit, cette réponse
+    n'étant lisible que depuis les origines autorisées par CORS.
+    """
 
     authentication_classes: list = []
     permission_classes = [AllowAny]
 
     def get(self, request: Request) -> Response:
-        return Response({"detail": "Cookie CSRF posé."})
+        return Response({"csrf_token": get_token(request)})
 
 
 class ForgotPasswordView(AuthThrottleMixin, APIView):

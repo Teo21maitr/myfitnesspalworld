@@ -79,4 +79,9 @@ class CookieJWTAuthentication(JWTAuthentication):
         check.process_request(request)
         reason = check.process_view(request, None, (), {})
         if reason:
-            raise exceptions.PermissionDenied(f"Échec de la vérification CSRF : {reason}")
+            # Code distinct de `permission_denied` : le frontend doit pouvoir
+            # distinguer « ton jeton est périmé, en voici un neuf » d'un vrai
+            # refus d'accès, qu'aucun rejeu ne réparerait.
+            raise exceptions.PermissionDenied(
+                f"Échec de la vérification CSRF : {reason}", code="csrf_failed"
+            )
