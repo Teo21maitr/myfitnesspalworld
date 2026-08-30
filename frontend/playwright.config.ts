@@ -26,6 +26,21 @@ const backendEnv = {
   CORS_ALLOWED_ORIGINS: `http://localhost:${FRONTEND_PORT}`,
   CSRF_TRUSTED_ORIGINS: `http://localhost:${FRONTEND_PORT},http://localhost:${BACKEND_PORT}`,
   EMAIL_BACKEND: 'django.core.mail.backends.locmem.EmailBackend',
+  // Stockage objet réel : le parcours des photos dépose et supprime des
+  // objets dans MinIO, que `docker compose` fournit déjà en local. Un faux
+  // stockage vérifierait le code, pas le monde.
+  //
+  // Les deux adresses diffèrent **volontairement** — même service, hôtes
+  // distincts. Sous Docker, le backend joint MinIO par `http://minio:9000`, un
+  // nom que le navigateur ne résout pas : une URL signée pour l'adresse interne
+  // ne s'ouvre nulle part. Les faire coïncider ici rendrait ce défaut
+  // invisible au parcours, comme il l'a été une fois.
+  S3_ENDPOINT_URL: process.env.E2E_S3_ENDPOINT_URL ?? 'http://127.0.0.1:9002',
+  S3_PUBLIC_ENDPOINT_URL: process.env.E2E_S3_PUBLIC_ENDPOINT_URL ?? 'http://localhost:9002',
+  S3_ACCESS_KEY_ID: process.env.E2E_S3_ACCESS_KEY_ID ?? 'mfp-local',
+  S3_SECRET_ACCESS_KEY: process.env.E2E_S3_SECRET_ACCESS_KEY ?? 'mfp-local-secret',
+  S3_BUCKET_NAME: process.env.E2E_S3_BUCKET_NAME ?? 'mfp-photos',
+  S3_REGION: 'us-east-1',
   // Meal Scan : fournisseur simulé, donc analyse déterministe et sans clé, et
   // exécution synchrone, donc sans worker Celery à démarrer.
   AI_ENABLED: 'True',
