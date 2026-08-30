@@ -19,6 +19,35 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    # L'API est servie sous la **même origine** que l'application.
+    #
+    # Sans ce relais, l'application et l'API vivent sur deux sous-domaines de
+    # `up.railway.app`, un suffixe public : deux *sites* distincts pour le
+    # navigateur. Le cookie de session y est alors un cookie tiers, au même
+    # titre que celui d'une régie publicitaire — et Safari les bloque sans
+    # condition. L'application marchait sur ordinateur et pas sur téléphone.
+    #
+    # Même origine, donc : plus de CORS, plus de `SameSite=None`, plus de
+    # jeton CSRF illisible parce qu'il appartient à un autre domaine. Les trois
+    # pannes de cookies rencontrées disparaissent avec leur cause commune.
+    location /api/ {
+        # Sans barre finale : nginx transmet alors l'URI d'origine intacte.
+        proxy_pass ${BACKEND_ORIGIN};
+        proxy_http_version 1.1;
+
+        # `Host` reste celui de l'amont. La plateforme route par ce nom : lui
+        # passer celui du frontend renverrait la requête sur nous-mêmes.
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # L'amont est toujours joint en HTTPS. Sans cet en-tête, Django croirait
+        # la requête en clair et la redirigerait.
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_read_timeout 60s;
+    }
+
     # Repli SPA. Sans lui, un rechargement sur /journal renverrait un 404 :
     # le routage vit dans le navigateur, pas sur le serveur.
     location / {

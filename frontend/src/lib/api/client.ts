@@ -8,7 +8,15 @@ import type { ApiErrorPayload } from './types'
  * accès (spec 05 §5).
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api/v1'
+/**
+ * Adresse de l'API, **relative** par défaut.
+ *
+ * L'application et l'API partagent une origine : nginx relaie `/api/` en
+ * production, Vite fait de même en développement. Un chemin relatif est donc
+ * juste partout, et ne peut plus figer l'adresse d'une machine dans le bundle.
+ * Une URL absolue reste acceptée, pour un déploiement sans relais.
+ */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 const CSRF_COOKIE_NAME = 'mfp_csrftoken'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -92,7 +100,9 @@ export interface RequestOptions extends RequestInit {
 
 function buildUrl(path: string, params?: RequestOptions['params']): string {
   const base = API_BASE_URL.replace(/\/$/, '')
-  const url = new URL(`${base}/${path.replace(/^\//, '')}`)
+  // L'origine sert de base aux adresses relatives ; elle est ignorée quand
+  // `API_BASE_URL` est absolue.
+  const url = new URL(`${base}/${path.replace(/^\//, '')}`, window.location.origin)
 
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) {

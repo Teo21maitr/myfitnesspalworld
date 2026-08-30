@@ -28,9 +28,9 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 FROM deps AS build
 
 # L'adresse de l'API est figée **dans le bundle** : elle se fournit ici et
-# nulle part ailleurs. `vite.config.ts` refuse de construire sans elle, parce
-# qu'un bundle qui appelle localhost se construit sans erreur et ne se répare
-# qu'en reconstruisant.
+# nulle part ailleurs. Elle vaut `/api/v1` par défaut — nginx relaie cette
+# origine vers le backend —, et n'a besoin d'être fournie que pour un
+# déploiement sans relais, où elle doit alors être absolue.
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 

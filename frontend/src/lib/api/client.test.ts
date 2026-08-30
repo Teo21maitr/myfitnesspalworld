@@ -119,6 +119,23 @@ describe('apiRequest', () => {
   })
 })
 
+describe('origine', () => {
+  it('adresse l’API sous la même origine que l’application', async () => {
+    // C'est ce qui rend les cookies de première partie, donc acceptés par
+    // Safari : le navigateur ne parle qu'à un seul hôte, nginx relaie le
+    // reste. Une base absolue figerait au contraire l'adresse d'une machine
+    // dans le bundle.
+    const spy = stubFetch([{ match: '/diary/', respond: () => jsonResponse({ ok: true }) }])
+
+    await api.get('/diary/', { params: { date: '2026-08-30' } })
+
+    const url = new URL(lastCallUrl(spy))
+    expect(url.origin).toBe(window.location.origin)
+    expect(url.pathname).toBe('/api/v1/diary/')
+    expect(url.searchParams.get('date')).toBe('2026-08-30')
+  })
+})
+
 describe('CSRF', () => {
   it('ajoute l’en-tête sur les méthodes non idempotentes', async () => {
     const spy = stubFetch([{ match: '/diary/entries/', respond: () => jsonResponse({ ok: true }) }])

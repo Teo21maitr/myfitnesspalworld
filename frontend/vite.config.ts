@@ -17,21 +17,23 @@ import { defineConfig } from 'vitest/config'
  *
  * C'est le seul instant où ce défaut est rattrapable.
  */
-function requireApiBaseUrl(command: string, mode: string): void {
-  if (command !== 'build' || mode !== 'production') return
-
-  if (!process.env.VITE_API_BASE_URL) {
-    throw new Error(
-      'VITE_API_BASE_URL est obligatoire pour construire en production : sans ' +
-        'elle, le bundle appellerait http://localhost:8001 et ne fonctionnerait ' +
-        'que sur la machine qui l’a construit.',
-    )
-  }
+/**
+ * Relais de l'API, pour que le développement se comporte comme la production.
+ *
+ * En production, nginx sert l'application **et** relaie `/api/` vers le
+ * backend : tout vit sous une seule origine. Sans le même relais ici, le
+ * développement resterait la seule configuration à parler à deux origines —
+ * exactement l'écart qui a laissé passer trois pannes de cookies jusqu'en
+ * production.
+ */
+const apiProxy = {
+  '/api': {
+    target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8001',
+    changeOrigin: true,
+  },
 }
 
-export default defineConfig(({ command, mode }) => {
-  requireApiBaseUrl(command, mode)
-
+export default defineConfig(() => {
   return {
     plugins: [
       react(),
@@ -82,7 +84,11 @@ export default defineConfig(({ command, mode }) => {
       port: 5173,
       // Nécessaire pour que le HMR fonctionne depuis un conteneur Docker.
       watch: { usePolling: process.env.DOCKER === 'true' },
+      proxy: apiProxy,
     },
+    // `vite preview` sert le bundle construit — c'est lui que Playwright
+    // interroge. Il a sa propre configuration de relais.
+    preview: { proxy: apiProxy },
     test: {
       globals: true,
       environment: 'jsdom',

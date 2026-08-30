@@ -77,13 +77,19 @@ export default defineConfig({
       env: backendEnv,
     },
     {
-      // Le build fige `VITE_API_BASE_URL` : il doit être refait avec l'URL du
-      // backend E2E avant d'être servi.
+      // Le build fige `VITE_API_BASE_URL` : il doit être refait avant d'être
+      // servi. Le parcours passe par le **relais**, comme en production —
+      // `vite preview` a sa propre configuration de proxy. Un E2E qui
+      // interrogerait le backend en direct validerait une topologie que
+      // l'application déployée n'emprunte pas.
       command: `npm run build && npm run preview -- --port ${FRONTEND_PORT} --strictPort`,
       url: `http://localhost:${FRONTEND_PORT}`,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { VITE_API_BASE_URL: `http://localhost:${BACKEND_PORT}/api/v1` },
+      env: {
+        VITE_API_BASE_URL: '/api/v1',
+        VITE_API_PROXY_TARGET: `http://localhost:${BACKEND_PORT}`,
+      },
     },
   ],
 })
