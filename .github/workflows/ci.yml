@@ -427,6 +427,25 @@ jobs:
           docker rm -f relais > /dev/null
           test "$code" = "200" || { echo "relais=$code" >&2; exit 1; }
 
+      # Le message que nginx donne sans cette variable — « unknown
+      # "backend_origin" variable » — ne nomme ni ce qu'il faut poser ni
+      # pourquoi. La garde le dit ; encore faut-il qu'elle parle.
+      - name: Le frontend refuse de démarrer sans sa cible de relais
+        run: |
+          if docker run --rm mfp-frontend:ci > /tmp/sortie 2>&1; then
+            echo "Le conteneur a démarré sans BACKEND_ORIGIN." >&2
+            exit 1
+          fi
+          grep -q "BACKEND_ORIGIN est obligatoire" /tmp/sortie \
+            || { echo "Le refus ne nomme pas la variable :" >&2; cat /tmp/sortie >&2; exit 1; }
+
+          if docker run --rm -e BACKEND_ORIGIN=https://api.example.com/ mfp-frontend:ci > /tmp/sortie 2>&1; then
+            echo "Une barre finale a été acceptée." >&2
+            exit 1
+          fi
+          grep -q "barre finale" /tmp/sortie \
+            || { echo "Le refus n'explique pas la barre finale :" >&2; cat /tmp/sortie >&2; exit 1; }
+
       - name: Le frontend sert son repli SPA
         run: |
           docker run -d --name frontend --network host \

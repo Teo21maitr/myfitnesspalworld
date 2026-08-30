@@ -499,7 +499,8 @@ La liste est embarquée dans les navigateurs ; en sortir prend des mois.
 | 403 CSRF à la connexion | `CSRF_TRUSTED_ORIGINS` incomplet, ou cookies bloqués : vérifie `AUTH_COOKIE_SAMESITE=None` sur deux domaines distincts |
 | 403 « CSRF cookie not set » alors qu'on est connecté | Le cookie CSRF n'a pas la portée du cookie d'authentification. Il la suit désormais automatiquement ; `curl -sI <backend>/api/v1/auth/csrf/` doit montrer `SameSite=None` |
 | Le frontend appelle `localhost` | `VITE_API_BASE_URL` posée après la construction. Reconstruis |
-| `/api/v1/...` répond **502** | nginx ne joint pas l'amont : `BACKEND_ORIGIN` absente ou fausse |
+| Le frontend répond **502 « Application failed to respond »** | nginx n'a pas démarré. Ses journaux nomment la variable manquante |
+| `/api/v1/...` répond **502** | nginx ne joint pas l'amont : `BACKEND_ORIGIN` fausse |
 | `/api/v1/...` répond **400** | L'hôte de `BACKEND_ORIGIN` manque à `DJANGO_ALLOWED_HOSTS` |
 | `/api/v1/...` répond **404** alors que le backend répond | `BACKEND_ORIGIN` porte une barre finale : nginx retire `/api/` du chemin |
 | Connexion impossible sur téléphone, correcte sur ordinateur | Le relais n'est pas en place : le cookie de session est un cookie tiers, que Safari bloque |

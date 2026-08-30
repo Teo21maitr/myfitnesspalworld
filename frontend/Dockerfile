@@ -45,6 +45,9 @@ FROM nginx:1.29-alpine AS production
 # Gabarit plutôt que configuration figée : nginx substitue les variables au
 # démarrage, et la plateforme impose son `$PORT`.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+# Exécuté avant la substitution des variables : une absence y est nommée, là
+# où nginx se contenterait d'un « unknown "backend_origin" variable ».
+COPY --chmod=755 docker-entrypoint.d/ /docker-entrypoint.d/
 COPY --from=build /app/dist /usr/share/nginx/html
 
 ENV PORT=8080
