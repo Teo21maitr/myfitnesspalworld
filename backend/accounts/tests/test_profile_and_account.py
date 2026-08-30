@@ -316,3 +316,29 @@ class TestFoodSearchLanguages:
 
         assert response.status_code == 200
         assert response.json()["food_search_languages"] == ["sv", "fr"]
+
+
+def test_la_suppression_du_compte_emporte_les_photos(
+    auth_client, active_user, fake_storage, jpeg_bytes
+):
+    """La cascade emporte les lignes ; les fichiers, il faut aller les chercher.
+
+    C'est le chemin le plus facile à oublier : `user.delete()` a l'air de tout
+    emporter, et rien ne signale les objets restés dans le seau (spec 05 §11).
+    """
+    from datetime import date
+
+    from progress.models import ProgressPhotoGroup
+    from progress.services import photos as photos_service
+
+    group = ProgressPhotoGroup.objects.create(user=active_user, date=date(2026, 8, 26))
+    photos_service.store_photo(group, data=jpeg_bytes, photo_type="front")
+    photos_service.store_photo(group, data=jpeg_bytes, photo_type="side")
+    assert fake_storage.count() == 2
+
+    response = auth_client.delete(
+        ACCOUNT_URL, {"username_confirmation": active_user.username}, format="json"
+    )
+
+    assert response.status_code == 204
+    assert fake_storage.count() == 0

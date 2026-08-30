@@ -46,6 +46,7 @@ from accounts.services.sessions import (
 )
 from common.permissions import IsActiveAccount
 from notifications.services.email import send_password_reset_email
+from progress.services import photos as progress_photos
 
 INVALID_CREDENTIALS_MESSAGE = "Nom d’utilisateur ou mot de passe incorrect."
 PENDING_ACCOUNT_MESSAGE = (
@@ -374,11 +375,21 @@ class AccountView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
+
+        # Les clés du stockage objet sont relevées **avant** la cascade :
+        # après elle, plus rien ne dit quels fichiers appartenaient à ce
+        # compte, et ils survivraient indéfiniment (spec 05 §11).
+        photo_keys = progress_photos.keys_of(user)
+
         with transaction.atomic():
             # Les jetons pointent sur l'utilisateur en SET_NULL : ils sont
             # supprimés explicitement pour ne rien laisser derrière.
             OutstandingToken.objects.filter(user=user).delete()
             user.delete()
+
+        # Hors transaction, et seulement une fois la suppression acquise :
+        # retirer un objet est irréversible.
+        progress_photos.purge(photo_keys)
 
         response = Response(status=status.HTTP_204_NO_CONTENT)
         return clear_auth_cookies(response)
