@@ -14,6 +14,7 @@ lever une.
 """
 
 import importlib
+import re
 import sys
 
 import pytest
@@ -164,3 +165,40 @@ class TestSilentAbsences:
         module = importlib.import_module(PRODUCTION)
 
         assert module.S3_BUCKET_NAME == ""
+
+
+class TestSondeDePlateforme:
+    """Ce que la plateforme demande, et que le domaine public ne couvre pas.
+
+    Le déploiement de l'étape 19 a échoué deux fois ici, et la seconde était la
+    plus trompeuse : healthcheck en échec, Railway conserve l'ancien conteneur,
+    l'application répond — donc tout paraît déployé pendant que la nouvelle
+    version n'a jamais démarré.
+    """
+
+    def test_l_hote_du_healthcheck_est_autorise(self, production_env):
+        """La sonde arrive avec `Host: healthcheck.railway.app`.
+
+        Absent d'`ALLOWED_HOSTS`, Django répond 400 avant toute vue. Le message
+        de la plateforme dit « HTTP 400 » et rien d'autre.
+        """
+        production_env.setenv("DJANGO_ALLOWED_HOSTS", "api.example.com")
+
+        module = importlib.import_module(PRODUCTION)
+
+        assert "healthcheck.railway.app" in module.ALLOWED_HOSTS
+        # Le domaine configuré n'est pas remplacé pour autant.
+        assert "api.example.com" in module.ALLOWED_HOSTS
+
+    def test_la_sonde_echappe_a_la_redirection_https(self, production_env):
+        """Elle arrive par le réseau interne, sans `X-Forwarded-Proto`.
+
+        La redirection HTTPS lui répondrait 301, et le healthcheck échouerait
+        pour une raison étrangère à la santé du service.
+        """
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.SECURE_SSL_REDIRECT is True, "la redirection reste active ailleurs"
+        assert any(re.match(pattern, "health/") for pattern in module.SECURE_REDIRECT_EXEMPT), (
+            "le chemin de la sonde doit échapper à la redirection"
+        )

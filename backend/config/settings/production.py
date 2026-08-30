@@ -9,7 +9,25 @@ DEBUG = False
 
 # Obligatoire : aucune valeur par défaut permissive en production.
 SECRET_KEY = env.str("DJANGO_SECRET_KEY")
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
+
+#: Hôte que la plateforme emploie pour sonder la santé du service.
+#:
+#: Railway n'interroge pas le domaine public : il tape le conteneur directement,
+#: avec `Host: healthcheck.railway.app`. Absent d'`ALLOWED_HOSTS`, Django répond
+#: 400 **avant toute vue** — et la plateforme, healthcheck échoué, conserve
+#: l'ancien conteneur. L'application continue donc de répondre pendant que le
+#: déploiement est mort : exactement le comportement plausible que cette étape
+#: combat.
+#:
+#: Ajouté ici plutôt que laissé à la variable, parce qu'un `DJANGO_ALLOWED_HOSTS`
+#: réécrit un jour rejouerait la panne, avec pour seul indice un « HTTP 400 » qui
+#: ne nomme rien.
+#:
+#: Sans risque : les liens absolus de l'application viennent de `FRONTEND_URL` et
+#: `BACKEND_URL`, jamais de l'en-tête `Host`.
+HEALTHCHECK_HOST = "healthcheck.railway.app"
+
+ALLOWED_HOSTS = [*env.list("DJANGO_ALLOWED_HOSTS"), HEALTHCHECK_HOST]
 
 # Allowlist stricte, jamais "*".
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
@@ -18,6 +36,13 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 # HTTPS derrière le proxy Railway.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+
+#: La sonde de la plateforme arrive par le réseau interne, sans
+#: `X-Forwarded-Proto`. La redirection HTTPS lui répondrait 301 vers une adresse
+#: qu'elle n'a pas demandée, et le healthcheck échouerait pour une raison qui
+#: n'a rien à voir avec la santé du service. Une sonde interne n'a pas à être
+#: redirigée ; le reste de l'application, si.
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 30)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True)
 # Le préchargement HSTS est un engagement **irréversible en pratique** : la
