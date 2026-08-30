@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 
 import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { ThemeSync } from '@/features/settings/use-settings'
@@ -22,8 +22,15 @@ export function AppLayout() {
           {/* Le tiroir n'existe que sur mobile : la barre latérale porte déjà
               toute la navigation à partir de `md`. */}
           <NavDrawer />
-          <img src="/favicon.svg" alt="" aria-hidden="true" className="size-7 rounded-md" />
-          <span className="font-semibold tracking-tight">MyFitnessPalworld</span>
+          {/* Le logo ramène à l'accueil : c'est ce qu'un logo fait partout
+              ailleurs, et l'attendre sans l'obtenir se remarque. */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <img src="/favicon.svg" alt="" aria-hidden="true" className="size-7 rounded-md" />
+            <span className="font-semibold tracking-tight">MyFitnessPalworld</span>
+          </Link>
         </div>
         <ThemeToggle />
       </header>
