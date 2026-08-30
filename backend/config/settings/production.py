@@ -145,6 +145,17 @@ if EMAIL_BACKEND in SILENT_EMAIL_BACKENDS:
         f"Une réinitialisation de mot de passe y serait perdue en silence."
     )
 
+#: Un backend d'API sans sa clé démarre, puis échoue à chaque envoi. L'échec
+#: serait visible — `EmailLog` dirait FAILED — mais il se découvrirait sur le
+#: premier compte qui attend son email d'activation. Autant le dire au
+#: démarrage, quand personne n'attend encore rien.
+_required_key = API_EMAIL_BACKENDS.get(EMAIL_BACKEND)
+if _required_key and not ANYMAIL.get(_required_key):
+    raise ImproperlyConfigured(
+        f"{_required_key} est obligatoire en production avec "
+        f"EMAIL_BACKEND={EMAIL_BACKEND} : sans elle, aucun email ne partirait."
+    )
+
 # Sert les fichiers statiques de l'admin sans serveur web dédié.
 MIDDLEWARE = [
     *MIDDLEWARE[:1],

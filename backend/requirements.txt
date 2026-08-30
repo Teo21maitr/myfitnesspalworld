@@ -40,6 +40,10 @@ redis==6.4.0
 # HTTP / sécurité
 django-cors-headers==4.9.0
 
+# Envoi d'emails par API HTTP. Le SMTP est fermé en sortie sur la plateforme :
+# un fournisseur qui ne parle que SMTP y est inutilisable (spec 09).
+django-anymail==15.1
+
 # Service des fichiers statiques (admin) en production
 whitenoise==6.12.0
 

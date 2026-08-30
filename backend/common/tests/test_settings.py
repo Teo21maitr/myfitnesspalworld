@@ -260,3 +260,48 @@ class TestEnvoiBorne:
 
         assert module.EMAIL_TIMEOUT, "sans délai, un SMTP muet tue un worker"
         assert module.EMAIL_TIMEOUT <= 30, "au-delà, gunicorn tue le worker avant"
+
+    def test_l_envoi_par_api_est_borne_par_le_meme_delai(self, production_env):
+        """Anymail ignore `EMAIL_TIMEOUT` : il parle HTTP, pas SMTP.
+
+        Les régler séparément laisserait la borne sur le chemin qu'on n'emploie
+        plus, et aucune sur celui qu'on emploie.
+        """
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.ANYMAIL["REQUESTS_TIMEOUT"] == module.EMAIL_TIMEOUT
+
+
+class TestCleDeFournisseur:
+    """Un backend d'API sans sa clé démarre, puis échoue à chaque envoi.
+
+    L'échec serait visible dans `EmailLog`, mais il se découvrirait sur le
+    premier compte qui attend son email d'activation.
+    """
+
+    RESEND = "anymail.backends.resend.EmailBackend"
+
+    def test_un_backend_d_api_sans_cle_empeche_le_demarrage(self, production_env):
+        production_env.setenv("EMAIL_BACKEND", self.RESEND)
+        production_env.delenv("RESEND_API_KEY", raising=False)
+
+        with pytest.raises(ImproperlyConfigured) as failure:
+            importlib.import_module(PRODUCTION)
+
+        assert "RESEND_API_KEY" in str(failure.value)
+
+    def test_avec_sa_cle_il_est_accepte(self, production_env):
+        production_env.setenv("EMAIL_BACKEND", self.RESEND)
+        production_env.setenv("RESEND_API_KEY", "re_cle-de-test-sans-valeur")
+
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.EMAIL_BACKEND == self.RESEND
+
+    def test_un_backend_smtp_n_exige_aucune_cle(self, production_env):
+        """La clé n'est requise que par les backends qui en emploient une."""
+        production_env.delenv("RESEND_API_KEY", raising=False)
+
+        module = importlib.import_module(PRODUCTION)
+
+        assert module.EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"

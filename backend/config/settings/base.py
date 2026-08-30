@@ -51,6 +51,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "anymail",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
@@ -294,6 +295,23 @@ EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 #: connexion pendait, et l'acceptation d'un compte tuait un worker à chaque
 #: fois.
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+
+#: Envoi par API HTTP, seule voie praticable sur la plateforme : Railway ferme
+#: les ports SMTP en sortie (25, 465, 587) contre le spam, et un fournisseur
+#: qui ne parle que SMTP y est inutilisable.
+#:
+#: `REQUESTS_TIMEOUT` reprend `EMAIL_TIMEOUT` plutôt que son propre défaut :
+#: Anymail **ignore** `EMAIL_TIMEOUT`, qui ne concerne que `smtplib`. Les régler
+#: séparément laisserait la borne sur le chemin qu'on n'emploie plus et aucune
+#: sur celui qu'on emploie — un garde-fou qui rassure sans protéger.
+ANYMAIL = {
+    "RESEND_API_KEY": env.str("RESEND_API_KEY", default=""),
+    "REQUESTS_TIMEOUT": EMAIL_TIMEOUT,
+}
+
+#: Backends d'envoi par API, qui exigent une clé pour fonctionner.
+API_EMAIL_BACKENDS = {"anymail.backends.resend.EmailBackend": "RESEND_API_KEY"}
+
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="MyFitnessPalworld <noreply@localhost>")
 
 # -----------------------------------------------------------------------------
