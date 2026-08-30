@@ -90,13 +90,9 @@ BACKEND_URL=https://exemple.invalid
 CORS_ALLOWED_ORIGINS=https://exemple.invalid
 CSRF_TRUSTED_ORIGINS=https://exemple.invalid
 
-# Emails. **Pas Gmail, pas de SMTP grand public** — voir la remarque plus bas.
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=<smtp de ton fournisseur>
-EMAIL_PORT=587
-EMAIL_HOST_USER=<identifiant>
-EMAIL_HOST_PASSWORD=<mot de passe>
-EMAIL_USE_TLS=True
+# Emails, par API HTTP. Le SMTP est fermé en sortie ici — voir plus bas.
+EMAIL_BACKEND=anymail.backends.resend.EmailBackend
+RESEND_API_KEY=<ta clé Resend>
 DEFAULT_FROM_EMAIL=MyFitnessPalworld <bonjour@ton-domaine.fr>
 
 # Open Food Facts exige un contact identifiable (spec 11 §3).
@@ -124,14 +120,33 @@ injectée au démarrage du conteneur ; celui qui tourne déjà garde les ancienn
 pas depuis un conteneur — la plateforme les ferme contre le spam. Gmail,
 Outlook et tout fournisseur qui ne parle que SMTP sont donc **inutilisables
 ici**, et l'échec ne ressemble pas à un refus : la connexion pend jusqu'à ce
-que gunicorn tue le worker. Il faut un fournisseur qui expose une **API HTTP**
-— Resend, Postmark, Mailgun, Brevo, SendGrid. Vérifie avant de configurer :
+que gunicorn tue le worker. Si tu veux le constater :
 
 ```bash
 railway ssh --service Backend -- python -c "import socket; socket.create_connection(('smtp.gmail.com', 587), timeout=8)"
 ```
 
 Une erreur au bout de huit secondes confirme le blocage.
+
+D'où **Resend**, qui envoie par API HTTP. Trois choses à faire chez eux, dans
+cet ordre :
+
+1. créer un compte sur [resend.com](https://resend.com) ;
+2. **API Keys** → *Create API Key*, portée « Sending access ». Colle-la dans
+   `RESEND_API_KEY`, côté Railway uniquement — elle n'a rien à faire dans le
+   dépôt ;
+3. **Domains** → ajouter ton domaine, et publier les enregistrements DNS qu'ils
+   affichent.
+
+Sans domaine vérifié, Resend n'accepte d'expédier que depuis
+`onboarding@resend.dev`, et **seulement vers l'adresse de ton propre compte**.
+C'est suffisant pour vérifier que la chaîne fonctionne, pas pour activer le
+compte d'un proche : `DEFAULT_FROM_EMAIL` doit alors valoir
+`MyFitnessPalworld <onboarding@resend.dev>`.
+
+Le backend **refuse de démarrer** si `EMAIL_BACKEND` désigne Resend sans
+`RESEND_API_KEY` : sans elle, chaque envoi échouerait, et ça se découvrirait
+sur le premier compte qui attend son email d'activation.
 
 **Ne définis pas `PORT`.** Railway l'injecte, et l'image l'utilise.
 
@@ -460,7 +475,8 @@ La liste est embarquée dans les navigateurs ; en sortir prend des mois.
 | Le frontend appelle `localhost` | `VITE_API_BASE_URL` posée après la construction. Reconstruis |
 | La construction du frontend échoue | `VITE_API_BASE_URL` absente. C'est la garde qui parle, et elle a raison |
 | Aucun email n'arrive, aucune ligne dans `EmailLog` | L'envoi n'a pas été tenté ou a été interrompu. Cherche `WORKER TIMEOUT` dans les journaux : la plateforme bloque le SMTP sortant, et la connexion pend |
-| `WORKER TIMEOUT` sur une action d'administration | Un envoi d'email synchrone vers un SMTP injoignable. `EMAIL_TIMEOUT` le borne désormais, mais le fournisseur reste à changer |
+| `WORKER TIMEOUT` sur une action d'administration | Un envoi d'email vers un serveur injoignable. `EMAIL_TIMEOUT` borne les deux chemins, SMTP et API |
+| `EmailLog` dit `FAILED` avec Resend | Domaine non vérifié, ou envoi hors de ton adresse de compte depuis `onboarding@resend.dev` |
 | Aucun email n'arrive, `EmailLog` dit `FAILED` | Le problème est chez le fournisseur : identifiants, domaine non vérifié, quota |
 | Les rappels ne partent pas | Le service `celery-beat` ne tourne pas, ou tourne en plusieurs exemplaires |
 | 404 sur une route rechargée | Le repli SPA de nginx : le frontend n'a pas été construit avec son étage `production` |
