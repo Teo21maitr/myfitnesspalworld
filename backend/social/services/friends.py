@@ -45,7 +45,9 @@ def send_request(*, from_user: User, to_user: User) -> FriendRequest:
             return pending
         raise ValidationError({"to_user_id": "Une demande est déjà en attente."})
 
-    return FriendRequest.objects.create(from_user=from_user, to_user=to_user)
+    created = FriendRequest.objects.create(from_user=from_user, to_user=to_user)
+    _notify_request(created)
+    return created
 
 
 @transaction.atomic
@@ -62,6 +64,7 @@ def accept(*, request: FriendRequest, user: User) -> Friendship:
 
     low, high = canonical_pair(request.from_user, request.to_user)
     friendship, _ = Friendship.objects.get_or_create(user_1=low, user_2=high)
+    _notify_accepted(request)
     return friendship
 
 
@@ -109,4 +112,40 @@ def search_users(*, user: User, query: str):
         User.objects.filter(status=UserStatus.ACTIVE, normalized_username__contains=term.casefold())
         .exclude(pk=user.pk)
         .order_by("username")
+    )
+
+
+def _notify_request(request: FriendRequest) -> None:
+    """Prévient le destinataire d'une demande reçue (spec 01 §24).
+
+    Après commit : une demande qui n'aboutit pas ne doit prévenir personne
+    (même motif que `accounts/services/registration.py`).
+    """
+    from notifications.models import EventType
+    from notifications.services import dispatch
+
+    transaction.on_commit(
+        lambda: dispatch.notify(
+            request.to_user,
+            event_type=EventType.FRIEND_REQUEST,
+            title=f"{request.from_user.username} souhaite vous ajouter",
+            message="Vous pouvez accepter ou refuser depuis la page Amis.",
+            link="/amis",
+        )
+    )
+
+
+def _notify_accepted(request: FriendRequest) -> None:
+    """Prévient le demandeur que sa demande a été acceptée."""
+    from notifications.models import EventType
+    from notifications.services import dispatch
+
+    transaction.on_commit(
+        lambda: dispatch.notify(
+            request.from_user,
+            event_type=EventType.FRIEND_ACCEPTED,
+            title=f"{request.to_user.username} a accepté votre demande",
+            message="Vous pouvez désormais partager vos données.",
+            link="/amis",
+        )
     )

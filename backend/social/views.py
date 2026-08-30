@@ -186,6 +186,8 @@ class ShareListCreateView(generics.ListCreateAPIView):
             # La fiche de la ressource doit annoncer ce qui vient d'être fait.
             sharing.sync_visibility(request.user, data["resource_type"], data["resource_id"])
 
+        _notify_share(request.user, permission)
+
         return Response(
             SharePermissionSerializer(
                 permission,
@@ -298,3 +300,25 @@ class SharedWeightView(generics.ListAPIView):
     def get_queryset(self):
         owner = shared_owner(self.request, ResourceType.PROGRESS)
         return WeightEntry.objects.filter(user=owner)
+
+
+def _notify_share(owner: User, permission: SharePermission) -> None:
+    """Prévient le destinataire d'un partage nommé (spec 01 §24).
+
+    Un partage ouvert à tous ne vise personne : il ne prévient personne non
+    plus, faute de destinataire à qui l'annoncer.
+    """
+    if permission.target_user_id is None:
+        return
+
+    from notifications.models import EventType
+    from notifications.services import dispatch
+
+    label = permission.get_resource_type_display().lower()
+    dispatch.notify(
+        permission.target_user,
+        event_type=EventType.SHARE_RECEIVED,
+        title=f"{owner.username} a partagé {label}",
+        message="Retrouvez ce partage dans « Ce qu'on m'a partagé ».",
+        link="/partages",
+    )
